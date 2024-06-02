@@ -1,0 +1,27 @@
+folder entries are *.json unless otherwise specified
+
+pack.mcmeta
+pack.png
+data
+    minecraft
+        tag
+            function    
+                load.json
+                tick.json
+    <namespace>
+        function            [*.mcfunction]
+        structure           [*.nbt]
+        tag                 {https://minecraft.wiki/w/Tag#List_of_tags}
+            function
+            block
+            entity_type
+            fluid
+            game_event
+            item
+        advancement        
+        banner_pattern
+        chat_type
+        damage_type
+        dimension
+        dimension_type
+        enchantment

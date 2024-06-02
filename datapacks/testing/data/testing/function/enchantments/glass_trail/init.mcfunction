@@ -1,0 +1,1 @@
+tag @s add ticking_enchantments_glass_trail

@@ -1,0 +1,26 @@
+{
+    "description": {"text": "Double Shot"},
+    "supported_items": ["minecraft:bow", "minecraft:crossbow"],
+    "primary_items": ["minecraft:bow", "minecraft:crossbow"],
+    "weight": 255,
+    "max_level": 1,
+    "min_cost": {
+        "base": 1,
+        "per_level_above_first": 1
+    },
+    "max_cost": {
+        "base": 3,
+        "per_level_above_first": 1
+    },
+    "anvil_cost": 2,
+    "slots": ["any"],
+    "effects": {
+        "minecraft:projectile_count": [{
+            "effect": {
+                "type": "minecraft:set",
+                "value": 2
+            }
+        }]
+    }
+}
+
