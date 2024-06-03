@@ -76,7 +76,7 @@ class Statement(CommandRef):
             cmd = Command(StrToken(cmd))
         self.cmds = [cmd]
 
-        self.idx = add_cmd(self.cmd)
+        self.idx = add_cmd(cmd)
 
     def get_cmds(self) -> List[Command]:
         return self.cmds
