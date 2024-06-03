@@ -71,12 +71,13 @@ def set_cmd(pathed_idx, cmd):
     GLOBAL_CMDS[get_full_path()][idx] = cmd
 
 class Statement(CommandRef):
-    def __init__(self, cmd: str | Command):
+    def __init__(self, cmd: str | Command, add=True):
         if isinstance(cmd, str):
             cmd = Command(StrToken(cmd))
         self.cmds = [cmd]
 
-        self.idx = add_cmd(cmd)
+        if add:
+            self.idx = add_cmd(cmd)
 
     def get_cmds(self) -> List[Command]:
         return self.cmds
@@ -160,8 +161,8 @@ class Condition:
         assert not(self.always_truthy() and self.always_falsy())
 
 class Block(Statement):
-    def __init__(self, *statements: Statement):
-        self.statements = statements
+    def __init__(self, *statements: Statement | str):
+        self.statements = tuple((Statement(statement) if isinstance(statement, str) else statement) for statement in statements)
 
     def get_cmds(self) -> List[Command]:
         return [cmd for statement in self.statements for cmd in statement.get_cmds()]

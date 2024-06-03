@@ -4,32 +4,30 @@ from .base import Statement, Condition, Fun, Block, add_cmd
 from .serialize import Command, Keyword, Token
 
 class If(Statement):
-    def __init__(self, condition: Condition):
-        self.condition = condition
+    def __init__(self, condition: Condition | str):
+        self.condition = (Condition(condition) if isinstance(condition, str) else condition)
         self.if_block = Block()
         self.else_block = Block()
         self.idx = add_cmd(self)
         self.cmds = []
 
-    def __call__(self, *statements: Statement) -> Self:     
-        for statement in statements:
-            statement.clear()
+    def __call__(self, *statements: Statement | str) -> Self:
+        self.if_block = Block(*statements)
+        self.if_block.clear()
         if self.condition.always_truthy():
             self.cmds = self.if_block.get_cmds()
         elif not self.condition.always_falsy():
-            self.if_block = Block(*statements)
             self.generate_cmd(self.condition, self.if_block)
 
         return self
     
-    def Else(self, *statements: Statement) -> Self:
-        for statement in statements:
-            statement.clear()
+    def Else(self, *statements: Statement | str) -> Self:
+        self.else_block = Block(*statements)
+        self.else_block.clear()
+            # (GLOBAL_CMDS still references self)
         if self.condition.always_falsy():
             self.cmds = self.else_block.get_cmds()
         elif not self.condition.always_truthy():
-            self.else_block = Block(*statements)
-            # (GLOBAL_CMDS still references self)
             self.generate_cmd(~self.condition, self.else_block)
         
         return self
