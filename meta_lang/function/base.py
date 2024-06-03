@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict, Self
 from .serialize import Command, Program, Token, StrToken, FunctionToken, Choice, Keyword
 from uuid import uuid4
 
@@ -9,19 +9,36 @@ CURRENT_PATH: List[str] = []
 def get_full_path():
     return '/'.join([DATAPACK_ROOT, CURRENT_NAMESPACE, 'function'] + CURRENT_PATH)
 GLOBAL_CMDS: Dict[str, Program] = {get_full_path(): []}
+def add_current_path_to_global():
+    if get_full_path() not in GLOBAL_CMDS:
+        GLOBAL_CMDS[get_full_path()] = []
 
-class Namespace:
+class RelativeNamespace:
+    def __init__(self, name: str):
+        self.name = name
+        self.old_name = CURRENT_NAMESPACE
+
+    def __enter__(self):
+        global CURRENT_NAMESPACE
+        CURRENT_NAMESPACE = self.name
+        add_current_path_to_global()
+
+    def __exit__(self, *args):
+        global CURRENT_NAMESPACE
+        CURRENT_NAMESPACE = self.old
+
+class Pathspace:
     def __init__(self, name: str):
         self.name = name
 
     def __enter__(self):
         CURRENT_PATH.append(self.name)
-        GLOBAL_CMDS[get_full_path()] = []
+        add_current_path_to_global()
 
     def __exit__(self, *args):
         CURRENT_PATH.pop()
 
-class GlobalNamespace:
+class Namespace:
     def __init__(self, namespace: str, full_path: List[str]):
         self.old_namespace = CURRENT_NAMESPACE
         self.new_namespace = namespace
@@ -32,7 +49,7 @@ class GlobalNamespace:
         global CURRENT_PATH, CURRENT_NAMESPACE
         CURRENT_NAMESPACE = self.new_namespace
         CURRENT_PATH = self.new_path
-        GLOBAL_CMDS[get_full_path()] = []
+        add_current_path_to_global()
 
     def __exit__(self, *args):
         global CURRENT_PATH, CURRENT_NAMESPACE
@@ -66,7 +83,7 @@ class Statement:
     def tokenize(self) -> List[Token]:
         return [token for cmd in self.get_cmds() for token in cmd.tokens]
     
-    def undo(self):
+    def clear(self):
         clear_cmd(self.idx)
 
 class ConditionType(Enum):
@@ -127,7 +144,7 @@ class Condition:
                             break
                         tokens += condition.tokenize()
                     rem_conditions = self.value[i:]
-                    tokens += Function.wrap_tokens([Keyword.EXECUTE] + [token for condition in rem_conditions for token in condition.tokenize()])
+                    tokens += Fun.wrap_tokens([Keyword.EXECUTE] + [token for condition in rem_conditions for token in condition.tokenize()])
                     return tokens
             case ConditionType.ANY:
                 return [Choice(choices=tuple(str(c) for c in self.value))]
@@ -140,25 +157,53 @@ class Condition:
     
     def sanity_check(self):
         assert not(self.always_truthy() and self.always_falsy())
-    
-class Function:
-    def __init__(self, *statements: Statement, namespace: str = CURRENT_NAMESPACE, path: Optional[List[str]] = None):
+
+class Block(Statement):
+    def __init__(self, *statements: Statement):
         self.statements = statements
+
+    def get_cmds(self) -> List[Command]:
+        return [cmd for statement in self.statements for cmd in statement.get_cmds()]
+    
+    def __len__(self):
+        return len(self.statements)
+    
+    def clear(self):
         for statement in self.statements:
-            statement.undo()
-        self.namespace = namespace
+            statement.clear()
+
+class Fun:
+    def __init__(self, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None):
+        self.statements = Block()
+
+        if namespace is None:
+            self.namespace = CURRENT_NAMESPACE
+        else:
+            self.namespace = namespace
+        
         self.uuid = uuid4()
+        if name is None:
+            self.name = str(self.uuid)
+        else:
+            self.name = name
+        
         self.idxes = []
         
         if path is None:
-            self.path = CURRENT_PATH + [str(self.uuid)]
+            self.path = CURRENT_PATH + [self.name]
         else:
             self.path = path
         
-        with GlobalNamespace(self.namespace, self.path):
+    def __call__(self, *statements: Statement) -> Self:
+        self.statements = Block(*statements)
+        self.statements.clear()
+
+        with Namespace(self.namespace, self.path):
             for statement in self.statements:
                 for cmd in statement.get_cmds():
                     self.idxes.append(add_cmd(cmd))
+
+        return self
 
     def get_token(self) -> Token:
         return FunctionToken(self.namespace, self.path)
@@ -167,7 +212,7 @@ class Function:
     def wrap_tokens(tokens: List[Token]) -> List[Token]:
         uuid = uuid4()
         namespace = CURRENT_NAMESPACE
-        with Namespace(str(uuid)):
+        with Pathspace(str(uuid)):
             add_cmd(Command(tokens=tokens))
             path = CURRENT_PATH
         return FunctionToken(namespace, path)

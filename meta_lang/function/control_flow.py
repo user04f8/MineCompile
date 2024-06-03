@@ -1,24 +1,7 @@
 from typing import Tuple, Self, List
 
-from .base import Statement, Condition, Function, add_cmd
+from .base import Statement, Condition, Fun, Block, add_cmd
 from .serialize import Command, Keyword, Token
-
-class Block(Statement):
-    def __init__(self, *statements: Statement):
-        self.statements = statements
-
-    def get_cmds(self) -> List[Command]:
-        return [cmd for statement in self.statements for cmd in statement.get_cmds()]
-    
-    def __len__(self):
-        return len(self.statements)
-    
-    def undo(self):
-        for statement in self.statements:
-            statement.undo()
-    
-    # def tokenize(self) -> List[Token]:
-    #     return [cmd for statement in self.statements for cmd in statement.tokenize()]
 
 class If(Statement):
     def __init__(self, condition: Condition):
@@ -29,7 +12,7 @@ class If(Statement):
 
     def __call__(self, *statements: Statement) -> Self:     
         for statement in statements:
-            statement.undo()
+            statement.clear()
         if not self.condition.always_falsy():
             self.if_block = Block(*statements)
             
@@ -37,7 +20,7 @@ class If(Statement):
     
     def Else(self, *statements: Statement) -> Self:
         for statement in statements:
-            statement.undo()
+            statement.clear()
         if not self.condition.always_truthy():
             self.else_block = Block(*statements)
             # (GLOBAL_CMDS still references self)
@@ -53,11 +36,11 @@ class If(Statement):
         if len(self.if_block) == 1:
             cmds.append(Command([Keyword.EXECUTE, *self.condition.tokenize(), Keyword.RUN, *self.if_block.tokenize()]))
         elif len(self.if_block) > 1:
-            cmds.append(Command([Keyword.EXECUTE, *self.condition.tokenize(), Keyword.RUN, Function(*self.if_block.statements)]))
+            cmds.append(Command([Keyword.EXECUTE, *self.condition.tokenize(), Keyword.RUN, Fun()(*self.if_block.statements)]))
         if len(self.else_block) == 1:
             cmds.append(Command([Keyword.EXECUTE, *(~self.condition).tokenize(), Keyword.RUN, *self.if_block.tokenize()]))
         elif len(self.else_block) > 1:
-            cmds.append(Command([Keyword.EXECUTE, *(~self.condition).tokenize(), Keyword.RUN, Function(*self.if_block.statements)]))
+            cmds.append(Command([Keyword.EXECUTE, *(~self.condition).tokenize(), Keyword.RUN, Fun()(*self.if_block.statements)]))
         
         return cmds
         # out = ''
