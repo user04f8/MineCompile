@@ -25,7 +25,7 @@ class RelativeNamespace:
 
     def __exit__(self, *args):
         global CURRENT_NAMESPACE
-        CURRENT_NAMESPACE = self.old
+        CURRENT_NAMESPACE = self.old_name
 
 class Pathspace:
     def __init__(self, name: str):
