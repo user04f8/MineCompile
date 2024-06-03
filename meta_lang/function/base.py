@@ -6,10 +6,8 @@ from uuid import uuid4
 DATAPACK_ROOT: str = './datapacks/testing/data'
 CURRENT_NAMESPACE: str = 'main'
 CURRENT_PATH: List[str] = []
-def path_to_str(x: List[str]) -> str:
-    return '/'.join(x)
 def get_full_path():
-    return path_to_str([DATAPACK_ROOT, CURRENT_NAMESPACE, 'function'] + CURRENT_PATH)
+    return '/'.join([DATAPACK_ROOT, CURRENT_NAMESPACE, 'function'] + CURRENT_PATH)
 GLOBAL_CMDS: Dict[str, Program] = {get_full_path(): []}
 
 class Namespace:
@@ -42,17 +40,17 @@ class GlobalNamespace:
         CURRENT_NAMESPACE = self.old_namespace
 
 def add_cmd(cmd):
-    idx = len(GLOBAL_CMDS[path_to_str(CURRENT_PATH)])
-    GLOBAL_CMDS[path_to_str(CURRENT_PATH)].append(cmd)
+    idx = len(GLOBAL_CMDS[get_full_path()])
+    GLOBAL_CMDS[get_full_path()].append(cmd)
     return (CURRENT_PATH, idx)
 
 def clear_cmd(pathed_idx):
     path, idx = pathed_idx
-    GLOBAL_CMDS[path_to_str(path)][idx] = None
+    GLOBAL_CMDS[get_full_path()][idx] = None
 
 def set_cmd(pathed_idx, cmd):
     path, idx = pathed_idx
-    GLOBAL_CMDS[path_to_str(path)][idx] = cmd
+    GLOBAL_CMDS[get_full_path()][idx] = cmd
 
 class Statement:
     def __init__(self, cmd: str | Command):
@@ -62,8 +60,11 @@ class Statement:
 
         self.idx = add_cmd(self.cmd)
 
-    def get_cmds(self) -> Program:
+    def get_cmds(self) -> List[Command]:
         return [self.cmd]
+    
+    def tokenize(self) -> List[Token]:
+        return [token for cmd in self.get_cmds() for token in cmd.tokens]
     
     def undo(self):
         clear_cmd(self.idx)
@@ -73,18 +74,18 @@ class ConditionType(Enum):
     ALL = 10
     ANY = 11
 
-class Conditional:
+class Condition:
     SIMPLE = {ConditionType.STR, }
 
-    def __init__(self, value: str | List['Conditional'], condition_type: ConditionType = ConditionType.STR):
+    def __init__(self, value: str | List['Condition'], condition_type: ConditionType = ConditionType.STR):
         self.condition_type = condition_type
         self.value = value
         self.inverted = False
     
-    def __invert__(self) -> 'Conditional':
+    def __invert__(self) -> 'Condition':
         self.inverted = not self.inverted
 
-    def __and__(self, c: 'Conditional') -> 'Conditional':
+    def __and__(self, c: 'Condition') -> 'Condition':
         if self.always_falsy() or c.always_truthy():
             return self
         elif self.always_truthy() or c.always_falsy():
@@ -96,9 +97,9 @@ class Conditional:
             else:
                 self.value.append(c)
             return self
-        return Conditional(condition_type=ConditionType.ALL, value=[self, c])
+        return Condition(condition_type=ConditionType.ALL, value=[self, c])
 
-    def __or__(self, c: 'Conditional') -> 'Conditional':
+    def __or__(self, c: 'Condition') -> 'Condition':
         if self.always_falsy() or c.always_truthy():
             return c
         elif self.always_truthy() or c.always_falsy():
@@ -110,7 +111,7 @@ class Conditional:
             else:
                 self.value.append(c)
             return self
-        return Conditional(condition_type=ConditionType.ANY, value=[self, c])
+        return Condition(condition_type=ConditionType.ANY, value=[self, c])
 
     def tokenize(self) -> List[Token]:
         match self.condition_type:
@@ -171,9 +172,6 @@ class Function:
             path = CURRENT_PATH
         return FunctionToken(namespace, path)
     
-def build_statements(statements: List[Statement]) -> str:
-    '\n'.join(f'{statement}' for statement in statements)
-
 def display_all_cmds(root_dir: str = './datapacks/testing/data/'):
     global DATAPACK_ROOT
     DATAPACK_ROOT = root_dir

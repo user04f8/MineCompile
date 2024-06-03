@@ -23,6 +23,7 @@ class Keyword(StrEnum):
     EXECUTE = 'execute'
     IF = 'if'
     UNLESS = 'unless'
+    RUN = 'run'
 
 class Choice:
     def __init__(self, choices: Tuple[str], ident=None):
