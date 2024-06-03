@@ -9,40 +9,41 @@ class If(Statement):
         self.if_block = Block()
         self.else_block = Block()
         self.idx = add_cmd(self)
+        self.cmds = []
 
     def __call__(self, *statements: Statement) -> Self:     
         for statement in statements:
             statement.clear()
-        if not self.condition.always_falsy():
+        if self.condition.always_truthy():
+            self.cmds = self.if_block.get_cmds()
+        elif not self.condition.always_falsy():
             self.if_block = Block(*statements)
-            
+            self.generate_cmd(self.condition, self.if_block)
+
         return self
     
     def Else(self, *statements: Statement) -> Self:
         for statement in statements:
             statement.clear()
-        if not self.condition.always_truthy():
+        if self.condition.always_falsy():
+            self.cmds = self.else_block.get_cmds()
+        elif not self.condition.always_truthy():
             self.else_block = Block(*statements)
             # (GLOBAL_CMDS still references self)
+            self.generate_cmd(~self.condition, self.else_block)
         
         return self
     
-    def get_cmds(self) -> List[Command]:
-        if self.condition.always_truthy():
-            return self.if_block.get_cmds()
-        if self.condition.always_falsy():
-            return self.else_block.get_cmds()
-        cmds = []
+    def generate_cmd(self, condition: Condition, block: Block) -> Command:
         if len(self.if_block) == 1:
-            cmds.append(Command([Keyword.EXECUTE, *self.condition.tokenize(), Keyword.RUN, *self.if_block.tokenize()]))
+            self.cmds.append(
+                Command(Keyword.EXECUTE, *condition.tokenize(), Keyword.RUN, *block.tokenize())
+            )
         elif len(self.if_block) > 1:
-            cmds.append(Command([Keyword.EXECUTE, *self.condition.tokenize(), Keyword.RUN, Fun()(*self.if_block.statements)]))
-        if len(self.else_block) == 1:
-            cmds.append(Command([Keyword.EXECUTE, *(~self.condition).tokenize(), Keyword.RUN, *self.if_block.tokenize()]))
-        elif len(self.else_block) > 1:
-            cmds.append(Command([Keyword.EXECUTE, *(~self.condition).tokenize(), Keyword.RUN, Fun()(*self.if_block.statements)]))
+            self.cmds.append(
+                Command(Keyword.EXECUTE, *condition.tokenize(), Keyword.RUN, Fun()(*block.statements))
+            )
         
-        return cmds
         # out = ''
         # if len(self.statements) == 1:
         #     out = f'execute {self.condition} run {self.statements[0]}\n'  

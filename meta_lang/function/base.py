@@ -1,14 +1,15 @@
+from copy import deepcopy
 from enum import Enum
 from typing import Any, List, Optional, Dict, Self
-from .serialize import Command, Program, Token, StrToken, FunctionToken, Choice, Keyword
+from .serialize import Command, CommandRef, Token, StrToken, FunctionToken, Choice, Keyword, CommandSepToken
 from uuid import uuid4
 
-DATAPACK_ROOT: str = './datapacks/testing/data'
+DATAPACK_ROOT: str = '%DATAPACK_ROOT%'
 CURRENT_NAMESPACE: str = 'main'
 CURRENT_PATH: List[str] = []
 def get_full_path():
     return '/'.join([DATAPACK_ROOT, CURRENT_NAMESPACE, 'function'] + CURRENT_PATH)
-GLOBAL_CMDS: Dict[str, Program] = {get_full_path(): []}
+GLOBAL_CMDS: Dict[str, List[Command | CommandRef]] = {get_full_path(): []}
 def add_current_path_to_global():
     if get_full_path() not in GLOBAL_CMDS:
         GLOBAL_CMDS[get_full_path()] = []
@@ -69,10 +70,10 @@ def set_cmd(pathed_idx, cmd):
     path, idx = pathed_idx
     GLOBAL_CMDS[get_full_path()][idx] = cmd
 
-class Statement:
+class Statement(CommandRef):
     def __init__(self, cmd: str | Command):
         if isinstance(cmd, str):
-            cmd = Command([StrToken(cmd)])
+            cmd = Command(StrToken(cmd))
         self.cmd = cmd
 
         self.idx = add_cmd(self.cmd)
@@ -81,7 +82,7 @@ class Statement:
         return [self.cmd]
     
     def tokenize(self) -> List[Token]:
-        return [token for cmd in self.get_cmds() for token in cmd.tokens]
+        return [token for cmd in self.get_cmds() for token in cmd.tokens + [CommandSepToken()]]
     
     def clear(self):
         clear_cmd(self.idx)
@@ -172,6 +173,15 @@ class Block(Statement):
         for statement in self.statements:
             statement.clear()
 
+class FunStatement(Statement):
+    def __init__(self, fun: 'Fun'):
+        self.fun = fun
+        self.cmd = Command(FunctionToken(self.fun.namespace, self.fun.path))
+        self.idx = None
+
+    def clear(self):
+        pass
+
 class Fun:
     def __init__(self, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None):
         self.block = Block()
@@ -194,7 +204,7 @@ class Fun:
         else:
             self.path = path
         
-    def __call__(self, *statements: Statement) -> Self:
+    def __call__(self, *statements: Statement) -> FunStatement:
         self.block = Block(*statements)
         self.block.clear()
 
@@ -203,29 +213,31 @@ class Fun:
                 for cmd in statement.get_cmds():
                     self.idxes.append(add_cmd(cmd))
 
-        return self
-
-    def get_token(self) -> Token:
-        return FunctionToken(self.namespace, self.path)
+        return FunStatement(self)
     
     @staticmethod
     def wrap_tokens(tokens: List[Token]) -> List[Token]:
         uuid = uuid4()
         namespace = CURRENT_NAMESPACE
         with Pathspace(str(uuid)):
-            add_cmd(Command(tokens=tokens))
+            add_cmd(Command(*tokens))
             path = CURRENT_PATH
         return FunctionToken(namespace, path)
     
-def display_all_cmds(root_dir: str = './datapacks/testing/data/'):
-    global DATAPACK_ROOT
-    DATAPACK_ROOT = root_dir
+def resolve_refs() -> List[Command]:
+    cmds = deepcopy(GLOBAL_CMDS)
+    for _, file_cmds in cmds.items():
+        [(cmd.resolve() if isinstance(cmd, CommandRef) else cmd) for cmd in file_cmds if cmd is not None]
+    return cmds
+
+
+def display_all_cmds(cmds = GLOBAL_CMDS, root_dir: str = './datapacks/testing/data/'):
     out = ''
-    for file_path, file_cmds in GLOBAL_CMDS.items():
+    #resolve_refs()
+    for file_path, file_cmds in cmds.items():
         if any(file_cmd is not None for file_cmd in file_cmds):
-            out += file_path
-            out += '.mcfunction\n'
+            out += file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
+            
             out += '\n'.join(str(cmd) for cmd in file_cmds if cmd is not None)
             out += '\n'
     print(out)
-    return out

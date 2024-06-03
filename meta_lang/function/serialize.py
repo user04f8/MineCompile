@@ -25,6 +25,13 @@ class Keyword(StrEnum):
     UNLESS = 'unless'
     RUN = 'run'
 
+class CommandSepToken:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return '\n'
+
 class Choice:
     def __init__(self, choices: Tuple[str], ident=None):
         self.choices = choices
@@ -45,8 +52,8 @@ class Choice:
 Token = StrToken | Keyword | Choice
 
 class Command:
-    def __init__(self, tokens=[]):
-        self.tokens: List[Token] = tokens
+    def __init__(self, *tokens: Token):
+        self.tokens = tokens
 
     def __str__(self):
         # return ' '.join(str(token) for token in self.tokens)
@@ -73,8 +80,15 @@ class Command:
 
         return '\n'.join(command_choices)
 
-    def add(self, token: Token):
-        self.tokens.append(token)
-
-Program = List[Command]
+class CommandRef:
+    def get_cmds(self) -> List[Command]:
+        return []
+    
+    def __str__(self):
+        return '\n'.join(
+            str(cmd) for cmd in self.resolve()
+        )
+    
+    def resolve(self) -> List[Command]:
+        return [(cmd.resolve() if isinstance(cmd, CommandRef) else cmd) for cmd in self.get_cmds()]
 
