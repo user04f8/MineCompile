@@ -176,7 +176,7 @@ class Block(Statement):
 class FunStatement(Statement):
     def __init__(self, fun: 'Fun'):
         self.fun = fun
-        self.cmd = Command(FunctionToken(self.fun.namespace, self.fun.path))
+        self.cmds = [Command(FunctionToken(self.fun.namespace, self.fun.path))]
         self.idx = None
 
     def clear(self):
@@ -231,7 +231,7 @@ def resolve_refs() -> List[Command]:
     return cmds
 
 
-def display_all_cmds(cmds = GLOBAL_CMDS, root_dir: str = './datapacks/testing/data/'):
+def display_all_cmds(cmds = GLOBAL_CMDS, root_dir: str = './datapacks/testing/data'):
     out = ''
     #resolve_refs()
     for file_path, file_cmds in cmds.items():
