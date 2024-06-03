@@ -74,12 +74,12 @@ class Statement(CommandRef):
     def __init__(self, cmd: str | Command):
         if isinstance(cmd, str):
             cmd = Command(StrToken(cmd))
-        self.cmd = cmd
+        self.cmds = [cmd]
 
         self.idx = add_cmd(self.cmd)
 
     def get_cmds(self) -> List[Command]:
-        return [self.cmd]
+        return self.cmds
     
     def tokenize(self) -> List[Token]:
         return [token for cmd in self.get_cmds() for token in cmd.tokens + [CommandSepToken()]]
