@@ -174,7 +174,7 @@ class Block(Statement):
 
 class Fun:
     def __init__(self, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None):
-        self.statements = Block()
+        self.block = Block()
 
         if namespace is None:
             self.namespace = CURRENT_NAMESPACE
@@ -195,11 +195,11 @@ class Fun:
             self.path = path
         
     def __call__(self, *statements: Statement) -> Self:
-        self.statements = Block(*statements)
-        self.statements.clear()
+        self.block = Block(*statements)
+        self.block.clear()
 
         with Namespace(self.namespace, self.path):
-            for statement in self.statements:
+            for statement in self.block.statements:
                 for cmd in statement.get_cmds():
                     self.idxes.append(add_cmd(cmd))
 
