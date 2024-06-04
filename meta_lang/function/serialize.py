@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Self
 from uuid import uuid4
 from itertools import product
 from enum import StrEnum
@@ -9,7 +9,12 @@ class StrToken:
 
     def __str__(self):
         return self.s
+    
+class CommandToken(StrToken):
+    pass
 
+class CommandSubToken(StrToken):
+    pass
 
 class FunctionToken:
     def __init__(self, namespace: str, path: List[str]):
@@ -18,6 +23,19 @@ class FunctionToken:
 
     def __str__(self):
         return f'function {self.namespace}:{'/'.join(self.path)}'
+
+# class CommandName(type, StrToken):
+#     NAMES = []
+
+#     def __init__(self, x):
+#         if x in self.NAMES:
+#             pass
+    
+#     def __new__(mcs, name, base, dct):
+#         CommandName.NAMES.append(name)
+
+#         cls = super().__new__(mcs, name, base, dct)
+#         return cls
 
 class Keyword(StrEnum):
     EXECUTE = 'execute'
@@ -49,7 +67,29 @@ class Choice:
     def __str__(self):
         return f'$choice[{self.ident}]({self.choices})$'
 
-Token = StrToken | Keyword | Choice
+class Selector:
+    def __init__(self, s: str = 's', **kwargs):
+        # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
+        assert s in {'p', 'r', 'a', 'e', 's', 'n'}
+        self.s = s
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return f'@{self.s}[{','.join(f"{key}={val}" for key, val in self.kwargs.items())}]'
+
+class EntitySelector(Selector):
+    def __init__(self, **kwargs):
+        return Selector('e', **kwargs)
+
+class VarToken:
+    def __init__(self, entity_ref: Selector, name):
+        self.entity_ref = entity_ref,
+        self.name = name
+
+    def __str__(self):
+        return f'$var[{self.entity_ref}][{self.name}]$'
+
+Token = StrToken | Keyword | Choice | Selector | VarToken | CommandSepToken
 
 class Command:
     def __init__(self, *tokens: Token):
@@ -81,7 +121,7 @@ class Command:
         return '\n'.join(command_choices)
 
 class CommandRef:
-    def get_cmds(self) -> List[Command]:
+    def get_cmds(self) -> List[Command | Self]:
         return []
     
     def __str__(self):
