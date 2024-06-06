@@ -92,16 +92,17 @@ class RawCommand(Statement):
     NAME: str
 
     def __init__(self, *tokens: Token, add=True):
+        cmds = [self.as_cmd(*tokens)]
         # if isinstance(tokens, str):
         #     tokens = [StrToken(token) for token in tokens.split()]
-        super().__init__(self, self.as_cmd(*tokens), add=add)
+        super().__init__(cmds, add=add)
 
     @classmethod
     def as_cmd(cls, *args, **kwargs) -> TokensContainer:
         # cmds = cls(*args, add=False).get_cmds()
         # assert len(cmds) == 0
         # return cmds[0]
-        return TokensContainer(CommandNameToken(cls.NAME), cls._gen_tokens(*args, **kwargs))
+        return TokensContainer(CommandNameToken(cls.NAME), *cls._gen_tokens(*args, **kwargs))
     
     @staticmethod
     def _gen_tokens(*args) -> Iterable[Token]:

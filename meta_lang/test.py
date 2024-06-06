@@ -1,8 +1,7 @@
 from function import *
 
 with Pathspace('test'):
-    Statement('say hi')
-    Statement('say bye')
+    Advancement.grant(Selector(), ResourceLocation('kjsakflj'))
 
 Fun[int] ('return4') (
     Statement('do stuff to set val to 4 and return')

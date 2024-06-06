@@ -78,8 +78,11 @@ class Namespace:
 class Statement(TokensRef):
     def __init__(self, cmds: str | List[TokensContainer], add=True):
         if isinstance(cmds, str):
-            cmds = [TokensContainer(*(StrToken(token) for token in cmd.split())) for cmd in cmds.split('\n')]
-        self.cmds = cmds
+            self.cmds = [TokensContainer(*(StrToken(token) for token in cmd.split())) for cmd in cmds.split('\n')]
+        elif isinstance(cmds, List):
+            self.cmds = cmds
+        else:
+            raise TypeError(f"Invalid type for Statement cmds {type(cmds)}")
 
         if add:
             self.idx = GLOBALS.add_cmd(self)

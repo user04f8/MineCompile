@@ -139,6 +139,7 @@ class SelectorToken(Token):
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
+        assert all(isinstance(token, Token) for token in tokens), f"{[type(token) for token in tokens]}"
         self.tokens = tokens
 
     def __iter__(self):
@@ -151,6 +152,8 @@ class TokensContainer:
         # return ' '.join(str(token) for token in self.tokens)
 
         def token_serialize(t: Token) -> str:
+            print(t.__repr__())
+            print(t.__str__())
             if debug:
                 return t.debug_str()
             elif color:
