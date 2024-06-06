@@ -1,14 +1,7 @@
-from typing import Tuple, Self, List
+from typing import Self, List
 
-from .base import Statement, Condition, Fun, Block
-from .serialize import Command, Keyword, Token
-
-class ExecuteSub:
-    pass
-
-class Execute(Statement):
-    def __init__(self):
-        pass
+from .base import Statement, Fun, Block, TokensContainer
+from .commands import Condition, RawExecute
 
 class If(Statement):
     def __init__(self, condition: Condition | str, add=True):
@@ -17,6 +10,7 @@ class If(Statement):
         self.condition = (Condition(condition) if isinstance(condition, str) else condition)
         self.if_block = Block()
         self.else_block = Block()
+        self.cmds: List[TokensContainer] = []
 
     def __call__(self, *statements: Statement | str) -> Self:
         self.if_block = Block(*statements)
@@ -24,7 +18,7 @@ class If(Statement):
         if self.condition.always_true:
             self.cmds = self.if_block.get_cmds()
         elif not self.condition.always_false:
-            self.generate_cmd(self.condition, self.if_block)
+            self.gen_cmd(self.condition, self.if_block)
 
         return self
     
@@ -33,21 +27,17 @@ class If(Statement):
         self.else_block.clear()
             # (GLOBAL_CMDS still references self)
         if self.condition.always_false:
-            self.cmds = self.else_block.get_cmds()
+            self.tokens = self.else_block.get_cmds()
         elif not self.condition.always_true:
-            self.generate_cmd(~self.condition, self.else_block)
+            self.gen_cmd(~self.condition, self.else_block)
         
         return self
     
-    def generate_cmd(self, condition: Condition, block: Block) -> Command:
-        if len(self.if_block) == 1:
-            self.cmds.append(
-                Command(Keyword.EXECUTE, *condition.tokenize(), Keyword.RUN, *block.tokenize())
-            )
-        elif len(self.if_block) > 1:
-            self.cmds.append(
-                Command(Keyword.EXECUTE, *condition.tokenize(), Keyword.RUN, Fun()(*block.statements))
-            )
+    def gen_cmd(self, condition: Condition, block: Block):
+        if len(block) == 1:
+            self.cmds.append(RawExecute.as_cmd(condition, *block.single_line_tokenize()))
+        elif len(block) > 1:
+            self.cmds.append(RawExecute.as_cmd(condition, Fun()(*block.statements)))
         
         # out = ''
         # if len(self.statements) == 1:
