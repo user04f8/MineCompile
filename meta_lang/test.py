@@ -13,12 +13,29 @@ from function import *
 #     While (Condition('a')) (
 #         Statement('asdfjkl')
 #     )
-with Pathspace('asdjfk'):
-    with Fun('asdf')[int] as (f, x):
-        Statement(repr(x))
-        Statement(str(x))
-        Statement('test')
-        f()
 
+#    IDEA not current syntax:
+# with Pathspace('control_flow'):
+#     with Fun()[Condition, Block] as (while_, (c, b)):
+#         c: Condition
+#         b: Block
+#         If(c) (
+#             *b,
+#             while_(c, b)
+#         )
+
+def while_(c: Condition, b: Block):
+    with Fun() as f:
+        If(c) (
+            *b.statements,
+            f()
+        )
+
+while_(
+    Condition('block ~ ~ ~ air'),
+    Block(
+        Statement('tp @s ^ ^ ^1')
+    )
+)
 
 display_all()

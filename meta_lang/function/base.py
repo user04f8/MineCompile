@@ -91,7 +91,7 @@ class Block(Statement):
             statement.clear()
 
 class ArgType(Enum):
-    NONE = 0
+    STATIC = 0
     INT = 1
     
     # TUPLE = 10
@@ -112,8 +112,6 @@ class ArgType(Enum):
             #     self.types = tuple(ValType(x) for x in xs)
             case int(x):
                 return ArgType.INT
-            case None:
-                return ArgType.NONE
             case _:
                 return ArgType.UNKOWN
     
@@ -124,40 +122,27 @@ class ArgType(Enum):
             case _:
                 raise TypeError(f"Type {self} doesn't support input {x}")
             
-class Value:
-    def __init__(self, x, type: Optional[ArgType]):
-        if type is None:
-            self.type = ArgType.infer(x)
-        else:
-            x = type.cast(x)
-            self.type = type
-        self.x = x
+class ValueRef:
+    pass
+    # def __init__(self, x, type: Optional[ArgType]):
+    #     if type is None:
+    #         self.type = ArgType.infer(x)
+    #     else:
+    #         x = type.cast(x)
+    #         self.type = type
+    #     self.x = x
 
-class Alias(EmptyStatement):
-    def __init__(self, kw, kw_replace):
-        self.kw: Token = kw
-        self.kw_replace: Token = kw_replace
+class StaticValueRef:
+    def __class_getitem__(self, static_type):
+        self.static_type = static_type
 
-    def _apply_token(self, token: Token):
-        if self.kw == token:
-            return self.kw_replace
-
-    def apply(self, cmd: TokensContainer):
-        return TokensContainer(*(self._apply_token(token) for token in cmd))
-        
-# class ArgAliases(Alias):
-#     def __init__(self, *args):
-#         self.args = args
-#         self.kw = self.default()
-
-#     @staticmethod
-#     def default(i):
-#         return VarToken(Selector(), f'_{i}')
 
 class Arg(TokensRef):
-    def __init__(self, i, type_=ArgType.UNKOWN):
+    def __init__(self, i, type_):
         self.i = i
-        self.type_ = type_
+        self.type_: ValueRef | StaticValueRef
+        if not isinstance(type_, ValueRef):
+            self.type_ = StaticValueRef[type_]
 
 class Args:
     def __init__(self, fun=None):
@@ -166,11 +151,10 @@ class Args:
                 raise Exception('Args() initialized outside of a Fun')
             fun = GLOBALS.fun
         self.fun: Fun = fun
-        self.args = [Arg(0, type_) for type_ in self.fun.in_types]
+        self.args = [(Arg(0, type_) if isinstance(type_, ValueRef) else type_()) for type_ in self.fun.in_types]
 
     def __iter__(self):
             return self.args.__iter__()
-            # return (Arg(0, type_) for type_ in self.fun.in_types)
 
 class FunStatement(Statement):
     def __init__(self, fun: 'Fun'):
@@ -218,7 +202,7 @@ class Fun:
         self.refs = []
     
     @classmethod
-    def get(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
+    def get_statement(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
         return FunStatement(cls(name=name, namespace=namespace, path=path))
 
     def __class_getitem__(self, types):
@@ -242,7 +226,6 @@ class Fun:
         GLOBALS.fun = self
         self.namespace = GLOBALS.namespace
         self.path = copy(GLOBALS.path)  # need to copy or else since path is a List object this will be a reference
-        print_debug(f'curr path {self.path}')
         if self.in_types is None:
             return self
         elif isinstance(self.in_types, ArgType):
@@ -308,13 +291,6 @@ class SimpleFun:
 #     return cmds
 
 def compile_program(program: Program, **serialize_kwargs):
-    aliases = []
-
-    for cmd in program:
-        if isinstance(cmd, Alias):
-            raise NotImplementedError()  # aliases.append(cmd)
-
-
     return program.serialize(**serialize_kwargs)
 
 def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', write=False, color=False, debug=False) -> Dict[str, str]:

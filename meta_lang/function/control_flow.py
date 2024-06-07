@@ -42,7 +42,7 @@ class While(Statement):
         self.fun = Fun(ref) (
             RawExecute.as_cmd(subs=~self.condition, run_block=CommandNameToken('return')),
             *statements,
-            Fun.get(ref)
+            Fun.get_statement(ref).tokenize()
         )
         self.cmds = [
             self.fun

@@ -28,10 +28,14 @@ class ConditionType(Enum):
 
 
 class Condition:
-    SIMPLE = {ConditionType.STR, }
-
     def __init__(self, value: str | List[Self] = '', condition_type: ConditionType = ConditionType.STR):
         self.condition_type = condition_type
+        match self.condition_type:
+            case ConditionType.ANY:
+                assert not any(condition.condition_type == ConditionType.ANY for condition in self.value), "ERROR: Condition not in disjunctive normal form (DNF)"
+            case ConditionType.ALL:
+                assert not any(condition.condition_type in {ConditionType.ANY, ConditionType.ALL} for condition in self.value), "ERROR: Condition not in disjunctive normal form (DNF)"
+
         self.value = value
         self.inverted = False
 
@@ -57,18 +61,40 @@ class Condition:
         return inv_self
 
     def __and__(self, c: 'Condition') -> 'Condition':
+        def to_dnf(c1s: Condition, c2s: Condition):
+            assert c1s.condition_type == ConditionType.ANY, "Incorrect use of to_dnf"
+            if c2s.condition_type != ConditionType.ANY:
+                c2s = Condition(value=[c2s], condition_type=ConditionType.ANY)
+            dnf_clauses = []
+            for c1 in c1s.value:
+                for c2 in c2s.value:
+                    if c1.condition_type == ConditionType.ALL:
+                        if c2.condition_type == ConditionType.ALL:
+                            dnf_clauses.append(Condition(value=c1.value + c2.value, condition_type=ConditionType.ALL))
+                        else:
+                            dnf_clauses.append(Condition(value=c1.value + [c2], condition_type=ConditionType.ALL))
+                    else:
+                        if c2.condition_type == ConditionType.ALL:
+                            dnf_clauses.append(Condition(value=[c1] + c2.value, condition_type=ConditionType.ALL))
+                        else:
+                            dnf_clauses.append(Condition(value=[c1, c2], condition_type=ConditionType.ALL))
+            return dnf_clauses
+
         if self.always_false or c.always_true:
             return self
         elif self.always_true or c.always_false:
             return c
         elif self.condition_type == ConditionType.ALL:
-            self.value: List[Condition]
             if c.condition_type == ConditionType.ALL:
                 for v in c.value:
                     self.value.append(v)
             else:
                 self.value.append(c)
             return self
+        elif self.condition_type == ConditionType.ANY:            
+            return Condition(condition_type=ConditionType.ANY, value=to_dnf(self, c))
+        elif c.condition_type == ConditionType.ANY:
+            return Condition(condition_type=ConditionType.ANY, value=to_dnf(c, self))
         else:
             return Condition(condition_type=ConditionType.ALL, value=[self, c])
 
@@ -88,23 +114,16 @@ class Condition:
 
     def tokenize(self) -> List[Token]:
         match self.condition_type:
-            case ConditionType.STR:
-                return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), StrToken(self.value)]
-            case ConditionType.ALL:
-                if all(condition.condition_type in self.SIMPLE for condition in self.value):
-                    return [token for condition in self.value for token in condition.tokenize()]
-                else:
-                    tokens = []
-                    for i, condition in enumerate(self.value):
-                        if condition.condition_type not in self.SIMPLE:
-                            break
-                        tokens += condition.tokenize()
-                    rem_conditions = self.value[i:]
-                    tokens += Fun.wrap_tokens([CommandNameToken('execute')] + [token for condition in rem_conditions for token in condition.tokenize()])
-                    return tokens
             case ConditionType.ANY:
-                self.value: List[Condition]
                 return [ChoiceSpecialToken(*(c.tokenize() for c in self.value))]
+            case ConditionType.ALL:
+                return [token for condition in self.value for token in condition.tokenize()]
+            case _:
+                match self.condition_type:
+                    case ConditionType.STR:
+                        tokens = [StrToken(self.value)]
+                return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), *tokens]
+            
 
 class RawCommand(Statement):
     NAME: str
@@ -202,7 +221,7 @@ class RawExecute(RawCommand):
         if len(run_block) == 1:
             block_tokens = run_block.single_line_tokenize()
         elif len(run_block) > 1:
-            block_tokens = [Fun() (*run_block.statements)]
+            block_tokens = Fun()(*run_block.statements).tokenize()
         return [token for sub in subs for token in sub.tokenize()] + [CommandKeywordToken('run')] + block_tokens
 
 class Advancement(RawCommand):
