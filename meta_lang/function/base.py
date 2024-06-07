@@ -1,3 +1,4 @@
+from copy import copy
 from enum import Enum
 from typing import List, Optional, Dict
 from uuid import uuid4
@@ -9,44 +10,28 @@ from .types import *
 from .debug_utils import *
 
 
-class RelativeNamespace:
-    def __init__(self, name: str):
-        self.name = name
+class Namespace:
+    def __init__(self, name: str, full_path: Optional[List[str]] = None):
         self.old_name = GLOBALS.namespace
+        self.name = name
+        self.old_path = GLOBALS.path
+        self.new_path = full_path
 
     def __enter__(self):
-        GLOBALS.namespace = self.name
-        GLOBALS.add_current_path()
+        GLOBALS.set_namespace(self.name, self.new_path)
 
     def __exit__(self, *args):
-        GLOBALS.namespace = self.old_name
+        GLOBALS.set_namespace(self.old_name, self.old_path)
 
 class Pathspace:
     def __init__(self, name: str):
         self.name = name
 
     def __enter__(self):
-        GLOBALS.path.append(self.name)
-        GLOBALS.add_current_path()
+        GLOBALS.enter_path(self.name)
 
     def __exit__(self, *args):
-        GLOBALS.path.pop()
-
-class Namespace:
-    def __init__(self, namespace: str, full_path: List[str]):
-        self.old_namespace = GLOBALS.namespace
-        self.new_namespace = namespace
-        self.old_path = GLOBALS.path
-        self.new_path = full_path
-
-    def __enter__(self):
-        GLOBALS.namespace = self.new_namespace
-        GLOBALS.path = self.new_path
-        GLOBALS.add_current_path()
-
-    def __exit__(self, *args):
-        GLOBALS.path = self.old_path
-        GLOBALS.namespace = self.old_namespace
+        GLOBALS.exit_path(self.name)
 
 class Statement(TokensRef):
     def __init__(self, cmds: str | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
@@ -56,9 +41,9 @@ class Statement(TokensRef):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
             self.cmds = [cmds]
-        elif isinstance(cmds, List):
+        elif isinstance(cmds, List | Tuple):
             if len(cmds) == 0:
-                self.cmds = []
+                self.cmds: List[TokensContainer] = []
             elif isinstance(cmds[0], Token):
                 self.cmds = [TokensContainer(*cmds)]
             elif isinstance(cmds[0], TokensContainer):
@@ -148,38 +133,44 @@ class Value:
             self.type = type
         self.x = x
 
-# class ArgsType(ValType):
-#     def __init__(self, *types: type):
-#         self.type = SimpleValType.TUPLE
-#         self.types = tuple(ValType(type) for type in types)
-
-#     def __call__(self, x) -> Value:
-#         return []
-
-
 class Alias(EmptyStatement):
     def __init__(self, kw, kw_replace):
         self.kw: Token = kw
         self.kw_replace: Token = kw_replace
 
-    def tokenize(self) -> List[Token]:
-        return []
-
-    def apply_token(self, token: Token):
+    def _apply_token(self, token: Token):
         if self.kw == token:
             return self.kw_replace
 
     def apply(self, cmd: TokensContainer):
-        return TokensContainer(*(self.apply_token(token) for token in cmd))
+        return TokensContainer(*(self._apply_token(token) for token in cmd))
         
-class ArgNames(Alias):
-    def __init__(self, *args):
-        self.args = args
-        self.kw = self.default()
+# class ArgAliases(Alias):
+#     def __init__(self, *args):
+#         self.args = args
+#         self.kw = self.default()
 
-    @staticmethod
-    def default(i):
-        return VarToken(Selector(), f'_{i}')
+#     @staticmethod
+#     def default(i):
+#         return VarToken(Selector(), f'_{i}')
+
+class Arg(TokensRef):
+    def __init__(self, i, type_=ArgType.UNKOWN):
+        self.i = i
+        self.type_ = type_
+
+class Args:
+    def __init__(self, fun=None):
+        if fun is None:
+            if GLOBALS.fun is None:
+                raise Exception('Args() initialized outside of a Fun')
+            fun = GLOBALS.fun
+        self.fun: Fun = fun
+        self.args = [Arg(0, type_) for type_ in self.fun.in_types]
+
+    def __iter__(self):
+            return self.args.__iter__()
+            # return (Arg(0, type_) for type_ in self.fun.in_types)
 
 class FunStatement(Statement):
     def __init__(self, fun: 'Fun'):
@@ -189,67 +180,104 @@ class FunStatement(Statement):
 
     def clear(self):
         pass
-
+    
     def __call__(self, *args):
-        vals = (Value(val, type=in_type) for in_type, val in zip(self.fun.in_types, args))
+        super().__init__(self.cmds, add=True)
+        # vals = (Value(val, type=in_type) for in_type, val in zip(self.fun.in_types, args))
         
-        if isinstance(self.fun.block.statements[0], ArgNames):
-            funct_arg_names = self.fun.block.statements[0]
-            self.fun.block.statements = self.fun.block.statements[1:]
-            assignments = {funct_arg_name: val for funct_arg_name, val in zip(funct_arg_names, vals)}
-        else:
-            assignments = {ArgNames.default(i): arg for i, arg in enumerate(args)}
+        # if isinstance(self.fun.block.statements[0], ArgNames):
+        #     funct_arg_names = self.fun.block.statements[0]
+        #     self.fun.block.statements = self.fun.block.statements[1:]
+        #     assignments = {funct_arg_name: val for funct_arg_name, val in zip(funct_arg_names, vals)}
+        # else:
+        #     assignments = {ArgNames.default(i): arg for i, arg in enumerate(args)}
         
-        for statement in self.fun.block.statements:
-            pass
+        # for statement in self.fun.block.statements:
+        #     pass
 
 
 class Fun:
-    def __init__(self, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None):
-        self.block = None
-
-        if namespace is None:
-            self.namespace = GLOBALS.namespace
-        else:
-            self.namespace = namespace
+    def __init__(self, name: Optional[str] = None,
+                # namespace: Optional[str] = None,
+                # path: Optional[List[str]] = None
+                 ):
         
-        self.uuid = uuid4()
         if name is None:
-            self.name = str(self.uuid)
+            self.name = GLOBALS.gen_name()
         else:
             self.name = name
+        self.namespace = None
+        self.path = None
+        
+        self.inline = True
+        self.inline_block = None        
 
-        self.out_types = self.in_types = ()
+        self.out_types: Tuple[ArgType] | ArgType | None = None
+        self.in_types: Tuple[ArgType] | ArgType | None = None
         
         self.refs = []
-        self.idxes = []
-        
-        if path is None:
-            self.path = GLOBALS.path + [self.name]
+    
+    @classmethod
+    def get(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
+        return FunStatement(cls(name=name, namespace=namespace, path=path))
+
+    def __class_getitem__(self, types):
+        if isinstance(types, tuple):
+            self.out_types = tuple(ArgType.from_type(t) for t in types)
         else:
-            self.path = path
-
-    def __class_getitem__(self, *types):
-        self.out_type = tuple(ArgType.from_type(t) for t in types)
+            self.out_types = ArgType.from_type(types)
         return self
 
-    def __getitem__(self, *types):
-        self.in_types = tuple(ArgType.from_type(t) for t in types)
+    def __getitem__(self, types):
+        if isinstance(types, tuple):
+            self.in_types = tuple(ArgType.from_type(t) for t in types)
+        else:
+            self.in_types = ArgType.from_type(types)
         return self
+    
+    def __enter__(self) -> Self | Tuple[Self, Arg] | Tuple[Self, Args]:
+        self.inline = False
+        GLOBALS.enter_path(self.name)
+        self.parent = GLOBALS.fun
+        GLOBALS.fun = self
+        self.namespace = GLOBALS.namespace
+        self.path = copy(GLOBALS.path)  # need to copy or else since path is a List object this will be a reference
+        print_debug(f'curr path {self.path}')
+        if self.in_types is None:
+            return self
+        elif isinstance(self.in_types, ArgType):
+            return self, Arg(0, self.in_types)
+        else:
+            return self, Args(self)
+    
+    def __exit__(self, *args):
+        GLOBALS.exit_path(self.name)
+        GLOBALS.fun = self.parent
        
-    def __call__(self, *statements: Statement) -> FunStatement:
-        if self.block is None:
-            self.block = Block(*statements)
-            self.block.clear()
+    def __call__(self, *args) -> FunStatement:
+        if self.inline:
+            if self.inline_block is None:
+                self.inline_block = Block(*args)
+                self.inline_block.clear()
 
-            with Namespace(self.namespace, self.path):
-                for statement in self.block.statements:
-                    for cmd in statement.get_cmds():
-                        self.idxes.append(GLOBALS.add_cmd(cmd))
+                with self:
+                    for statement in self.inline_block.statements:
+                        GLOBALS.add_cmd(statement)
 
-            return FunStatement(self)  
+                # with Namespace(self.namespace, self.path):
+                #     for statement in self.inline_block.statements:
+                #         for cmd in statement.get_cmds():
+                #             idx = GLOBALS.add_cmd(cmd)
+                            # self.idxes.append(idx)
+
+                return FunStatement(self)
+            else:
+                raise ValueError('Function block already assigned')
         else:
-            raise ValueError('Function block already assigned')
+            print_debug(f'outline function call {self.namespace}:{'/'.join(self.path)}')
+            fun_statement = FunStatement(self)
+            fun_statement.__call__(*args)
+            return fun_statement
     
     @staticmethod
     def wrap_tokens(tokens: List[Token]) -> List[Token]:
@@ -259,7 +287,20 @@ class Fun:
             GLOBALS.add_cmd(TokensContainer(*tokens))
             path = GLOBALS.path
         return FunctionToken(namespace, path)
+
+class SimpleFun:
+    def __init__(self, name: Optional[str] = None):
+        if name is None:
+            self.name = GLOBALS.gen_name()
+        else:
+            self.name = name
+        self.namespace = None
+        self.path = None
+        self.block = None
     
+    
+        
+
 # def resolve_refs() -> List[Command]:
 #     cmds = deepcopy(GLOBALS.cmds)
 #     for _, file_cmds in cmds.items():
@@ -267,9 +308,13 @@ class Fun:
 #     return cmds
 
 def compile_program(program: Program, **serialize_kwargs):
+    aliases = []
+
     for cmd in program:
-        pass  # TODO run any final compilation postprocessing
-    
+        if isinstance(cmd, Alias):
+            raise NotImplementedError()  # aliases.append(cmd)
+
+
     return program.serialize(**serialize_kwargs)
 
 def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', write=False, color=False, debug=False) -> Dict[str, str]:

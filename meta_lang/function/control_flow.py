@@ -1,6 +1,8 @@
 from typing import Self, List
+from uuid import uuid4
 
 from .base import Statement, Fun, Block, TokensContainer
+from .serialize import ParseErrorToken, CommandNameToken
 from .commands import Condition, RawExecute
 from .debug_utils import *
 
@@ -11,7 +13,6 @@ class If(Statement):
         self.condition = (Condition(condition) if isinstance(condition, str) else condition)
         self.if_block = Block()
         self.else_block = Block()
-        self.cmds: List[TokensContainer] = []
 
     def __call__(self, *statements: Statement | str) -> Self:
         self.if_block = Block(*statements)
@@ -30,7 +31,34 @@ class If(Statement):
         elif not self.condition.always_true:
             self.cmds.append(RawExecute.as_cmd(subs=[~self.condition], run_block=self.else_block))
         return self
-        
-        
 
+class While(Statement):
+    def __init__(self, condition: Condition, add=True):
+        super().__init__([], add)
+        self.condition = condition
+    
+    def __call__(self, *statements: Statement) -> Self:
+        ref = str(uuid4())
+        self.fun = Fun(ref) (
+            RawExecute.as_cmd(subs=~self.condition, run_block=CommandNameToken('return')),
+            *statements,
+            Fun.get(ref)
+        )
+        self.cmds = [
+            self.fun
+        ]
+        return self
+
+class Do(Statement):
+    def __init__(self, *statements: Statement, add=True):
+        self.fun_ref = Fun() (*statements)
+        
+        super().__init__([self.fun_ref], add)
+
+    def While(self, condition: Condition) -> Self:
+        # if condition.always_true:
+        #     return ParseErrorToken('Invalid infinite while loop')
+        self.condition = condition
+
+        return self
 

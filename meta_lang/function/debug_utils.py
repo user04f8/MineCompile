@@ -1,7 +1,7 @@
 from termcolor import cprint
 from traceback import print_exc
 
-DEBUG = False
+DEBUG = True
 
 def print_fatal(msg):
     cprint(f'FATAL: {msg}', 'red')

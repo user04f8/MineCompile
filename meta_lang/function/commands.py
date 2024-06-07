@@ -1,3 +1,4 @@
+from copy import deepcopy
 from enum import Enum
 from typing import List, Self, Literal, Iterable
 
@@ -43,15 +44,17 @@ class Condition:
         return self.condition_type == ConditionType.FALSE
     
     def __invert__(self) -> Self:
-        if self.always_true:
-            self.condition_type = ConditionType.FALSE
-        elif self.always_false:
-            self.condition_type = ConditionType.TRUE
-        elif self.condition_type in {ConditionType.ANY, ConditionType.ALL}:
-            self.value = [~sub_condition for sub_condition in self.value]  # De Morgan's laws
+        inv_self = deepcopy(self)
+
+        if inv_self.always_true:
+            inv_self.condition_type = ConditionType.FALSE
+        elif inv_self.always_false:
+            inv_self.condition_type = ConditionType.TRUE
+        elif inv_self.condition_type in {ConditionType.ANY, ConditionType.ALL}:
+            inv_self.value = [~sub_condition for sub_condition in inv_self.value]  # De Morgan's laws
         else:
-            self.inverted = not self.inverted
-        return self
+            inv_self.inverted = not inv_self.inverted
+        return inv_self
 
     def __and__(self, c: 'Condition') -> 'Condition':
         if self.always_false or c.always_true:

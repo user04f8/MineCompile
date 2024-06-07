@@ -70,24 +70,27 @@ class FunctionToken(Token):
     def color_str(self):
         return colored(self.__str__(), 'magenta', attrs=["bold"])
 
+class TokenError(Exception):
+    pass
+
 class ParseErrorToken(Token):
-    def __init__(self, err: Exception):
+    def __init__(self, err: str):
         print_err(f'parse error {err}')
         self.err = err
 
     def __str__(self):
-        raise self.err
+        raise TokenError(self.err)
     
     def debug_str(self):
         return colored(f'$ParseError:{self.err}$', 'red', attrs=['bold'])
 
 class SerializeErrorToken(Token):
-    def __init__(self, err: Exception):
+    def __init__(self, err: str):
         print_err(f'serialize error {err}')
         self.err = err
 
     def __str__(self):
-        raise self.err
+        raise TokenError(self.err)
     
     def debug_str(self):
         return colored(f'$SerializeError:{self.err}$', 'red', attrs=['bold'])
