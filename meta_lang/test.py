@@ -2,9 +2,14 @@ from function import *
 
 with Pathspace('test'):
     Advancement.grant(Selector(), ResourceLocation('kjsakflj'))
+    Statement('# comment here')
+    If('block ~ ~ ~ air') (
+        Statement('do thing')
+    ).Else(
+        Statement('nevermind')
+    )
+    Statement([TokensContainer(StrToken('# comment'), ChoiceSpecialToken(Selector(), Selector('a')))])
 
-Fun[int] ('return4') (
-    Statement('do stuff to set val to 4 and return')
-)
+    
 
 display_all()

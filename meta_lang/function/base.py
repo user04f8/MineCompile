@@ -1,40 +1,13 @@
-from copy import deepcopy
 from enum import Enum
-from typing import Any, List, Optional, Dict, Self
-from .serialize import *
-from .types import *
+from typing import List, Optional, Dict
 from uuid import uuid4
 from pathlib import Path
 
-DATAPACK_ROOT: str = '%DATAPACK_ROOT%'
+from .globals import GLOBALS, DATAPACK_ROOT
+from .serialize import *
+from .types import *
+from .debug_utils import *
 
-class Globals:
-    def __init__(self, namespace='main'):
-        self.namespace: str = namespace
-        self.path: List[str] = []
-        self.programs: Dict[str, Program] = {self.get_full_path(): Program()}
-    
-    def get_full_path(self):
-        return '/'.join([DATAPACK_ROOT, self.namespace, 'function'] + self.path)
-
-    def add_current_path(self):
-        if self.get_full_path() not in self.programs:
-            self.programs[self.get_full_path()] = Program()
-        
-    def add_cmd(self, cmd):
-        idx = len(self.programs[self.get_full_path()])
-        self.programs[self.get_full_path()].append(cmd)
-        return (self.get_full_path(), idx)
-
-    def clear_cmd(self, pathed_idx):
-        full_path, idx = pathed_idx
-        self.programs[full_path][idx] = None
-
-    def set_cmd(self, pathed_idx, cmd):
-        full_path, idx = pathed_idx
-        self.programs[full_path][idx] = cmd
-
-GLOBALS = Globals()
 
 class RelativeNamespace:
     def __init__(self, name: str):
@@ -76,11 +49,20 @@ class Namespace:
         GLOBALS.namespace = self.old_namespace
 
 class Statement(TokensRef):
-    def __init__(self, cmds: str | List[TokensContainer], add=True):
+    def __init__(self, cmds: str | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
         if isinstance(cmds, str):
             self.cmds = [TokensContainer(*(StrToken(token) for token in cmd.split())) for cmd in cmds.split('\n')]
+        elif isinstance(cmds, Token):
+            self.cmds = [TokensContainer(cmds)]
+        elif isinstance(cmds, TokensContainer):
+            self.cmds = [cmds]
         elif isinstance(cmds, List):
-            self.cmds = cmds
+            if len(cmds) == 0:
+                self.cmds = []
+            elif isinstance(cmds[0], Token):
+                self.cmds = [TokensContainer(*cmds)]
+            elif isinstance(cmds[0], TokensContainer):
+                self.cmds = cmds
         else:
             raise TypeError(f"Invalid type for Statement cmds {type(cmds)}")
 
@@ -294,9 +276,10 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
     out_files: Dict[Path, str] = {}
     for file_path, program in programs.items():
         if any(file_cmd is not None for file_cmd in program):
-            file_path = Path(file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n')
+            file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
             out_files[file_path] = compile_program(program, color=color, debug=debug)
             if write:
+                file_path = Path(file_path)
                 file_path.mkdir(parents=True, exist_ok=True)
                 with open(file_path, 'w') as f:
                     f.write(out_files[file_path])

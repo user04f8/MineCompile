@@ -1,16 +1,30 @@
 from enum import Enum
 from typing import List, Self, Literal, Iterable
 
-from .base import Statement, Fun
+from .base import Statement, Fun, Block
 from .serialize import *
 from .types import *
+from .debug_utils import *
 
 class ConditionType(Enum):
+    STR = -1
+    
     FALSE = 0
     TRUE = 1
-    STR = 3
+    
     ALL = 10
     ANY = 11
+
+    BIOME = 20
+    BLOCK = 21
+    BLOCKS = 22
+    BLOCK_DATA = 23
+    ENTITY_DATA = 24
+    STORAGE_DATA = 25
+    DIMENSION = 26
+    FUNCTION = 27
+    ENTITY = 28
+
 
 class Condition:
     SIMPLE = {ConditionType.STR, }
@@ -37,6 +51,7 @@ class Condition:
             self.value = [~sub_condition for sub_condition in self.value]  # De Morgan's laws
         else:
             self.inverted = not self.inverted
+        return self
 
     def __and__(self, c: 'Condition') -> 'Condition':
         if self.always_false or c.always_true:
@@ -91,8 +106,8 @@ class Condition:
 class RawCommand(Statement):
     NAME: str
 
-    def __init__(self, *tokens: Token, add=True):
-        cmds = [self.as_cmd(*tokens)]
+    def __init__(self, *args, add=True):
+        cmds = [self.as_cmd(*args)]
         # if isinstance(tokens, str):
         #     tokens = [StrToken(token) for token in tokens.split()]
         super().__init__(cmds, add=add)
@@ -178,8 +193,14 @@ class RawExecute(RawCommand):
     NAME = 'execute'
 
     @staticmethod
-    def _gen_tokens(subs: List[ExecuteSub | Condition], cmd: TokensRef | TokensContainer) -> TokensContainer:
-        return [token for sub in subs for token in sub.tokenize()] + cmd.single_line_tokenize()
+    def _gen_tokens(subs: List[ExecuteSub | Condition], run_block: Block = Block()) -> List[Token]:
+        if len(run_block) == 0:
+            block_tokens = []
+        if len(run_block) == 1:
+            block_tokens = run_block.single_line_tokenize()
+        elif len(run_block) > 1:
+            block_tokens = [Fun() (*run_block.statements)]
+        return [token for sub in subs for token in sub.tokenize()] + [CommandKeywordToken('run')] + block_tokens
 
 class Advancement(RawCommand):
     NAME = 'advancement'

@@ -1,3 +1,5 @@
+from termcolor import colored
+
 from .serialize import Token, StrToken, SelectorToken, Serializable
 
 class Int32(Token):
@@ -12,14 +14,18 @@ class Int32(Token):
 
 
 class ResourceLocation(StrToken):
-    pass  # TODO
+    def color_str(self) -> str:
+        return colored(self.__str__(), 'blue')
 
 class Selector(Serializable):
     def __init__(self, s = 's', **kwargs):
         self.token: SelectorToken = SelectorToken(s, **kwargs)
 
+    def color_str(self) -> str:
+        return colored(self.__str__(), 'cyan')
+
     def as_(self):
-        return [self.token]
+        return [self.token] # TODO
 
 class SingleSelector(Selector):
     def __init__(self, s: str | Selector = 's', **kwargs) -> None:

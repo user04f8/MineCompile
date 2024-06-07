@@ -4,6 +4,7 @@ from itertools import product
 from enum import StrEnum
 
 from termcolor import colored
+from .debug_utils import *
 
 class SubToken:
     def __init__(self):
@@ -69,24 +70,27 @@ class FunctionToken(Token):
     def color_str(self):
         return colored(self.__str__(), 'magenta', attrs=["bold"])
 
-# class CommandName(type, StrToken):
-#     NAMES = []
+class ParseErrorToken(Token):
+    def __init__(self, err: Exception):
+        print_err(f'parse error {err}')
+        self.err = err
 
-#     def __init__(self, x):
-#         if x in self.NAMES:
-#             pass
+    def __str__(self):
+        raise self.err
     
-#     def __new__(mcs, name, base, dct):
-#         CommandName.NAMES.append(name)
+    def debug_str(self):
+        return colored(f'$ParseError:{self.err}$', 'red', attrs=['bold'])
 
-#         cls = super().__new__(mcs, name, base, dct)
-#         return cls
+class SerializeErrorToken(Token):
+    def __init__(self, err: Exception):
+        print_err(f'serialize error {err}')
+        self.err = err
 
-class KeywordToken(Token):
-    EXECUTE = CommandNameToken('execute')
-    IF = CommandKeywordToken('if')
-    UNLESS = CommandKeywordToken('unless')
-    RUN = CommandKeywordToken('run')
+    def __str__(self):
+        raise self.err
+    
+    def debug_str(self):
+        return colored(f'$SerializeError:{self.err}$', 'red', attrs=['bold'])
 
 TOKEN_SEP = ' '
 COMMAND_SEP = '\n'
@@ -94,6 +98,9 @@ COMMAND_SEP = '\n'
 class CommandSepToken(Token):
     def __str__(self):
         return COMMAND_SEP
+    
+    def debug_str(self) -> str:
+        return colored(' |SepToken|\n', 'grey')
 
 class ChoiceSpecialToken(Token):
     """
@@ -123,9 +130,6 @@ class ChoiceSpecialToken(Token):
             return self.uuid.int
         else:
             return hash(self.ident)
-        
-    def __str__(self):
-        return f'$choice[{self.ident}]({self.choices})$'
 
 class SelectorToken(Token):
     def __init__(self, s: str = 's', **kwargs):
@@ -135,7 +139,10 @@ class SelectorToken(Token):
         self.kwargs = kwargs
 
     def __str__(self):
-        return f'@{self.s}[{','.join(f"{key}={val}" for key, val in self.kwargs.items())}]'
+        if self.kwargs == {}:
+            return f'@{self.s}'
+        else:
+            return f'@{self.s}[{','.join(f"{key}={val}" for key, val in self.kwargs.items())}]'
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
@@ -148,12 +155,8 @@ class TokensContainer:
     def tokenize(self):
         return list(self.tokens)
 
-    def serialize(self, debug=False, color=False):
-        # return ' '.join(str(token) for token in self.tokens)
-
+    def serialize(self, debug=False, color=False) -> str:
         def token_serialize(t: Token) -> str:
-            print(t.__repr__())
-            print(t.__str__())
             if debug:
                 return t.debug_str()
             elif color:
@@ -161,28 +164,35 @@ class TokensContainer:
             else:
                 return str(t)
 
-        assignments = {
-            choice.ident: choice.choices
-                for choice in set(
-                    choice for choice in self if isinstance(choice, ChoiceSpecialToken)
-                )
-        }
+        try:
 
-        combinations = list(product(*assignments.values()))
+            assignments = {
+                choice.ident: choice.choices
+                    for choice in set(
+                        choice for choice in self if isinstance(choice, ChoiceSpecialToken)
+                    )
+            }
 
-        command_choices: List[str] = []
-        for combination in combinations:
-            command_choice = []
-            for token in self:
-                if isinstance(token, ChoiceSpecialToken):
-                    index = list(assignments.keys()).index(token.ident)
-                    command_choice += [token_serialize(token) for token in combination[index]]
-                else:
-                    command_choice.append(token_serialize(token))
-            command_choices.append(TOKEN_SEP.join(command_choice))
+            combinations = list(product(*assignments.values()))
 
-        return COMMAND_SEP.join(command_choices)
-    
+            command_choices: List[str] = []
+            for combination in combinations:
+                command_choice = []
+                for token in self:
+                    if isinstance(token, ChoiceSpecialToken):
+                        index = list(assignments.keys()).index(token.ident)
+                        command_choice += [token_serialize(token) for token in combination[index]]
+                    else:
+                        command_choice.append(token_serialize(token))
+                command_choices.append(TOKEN_SEP.join(command_choice))
+            if debug:
+                sep = colored(' |Choice|\n', 'grey')
+            else:
+                sep = COMMAND_SEP
+            return sep.join(command_choices)
+        except Exception as e:
+            return SerializeErrorToken(e)
+             
     def __str__(self):
         return self.serialize()
 
@@ -202,16 +212,24 @@ class TokensRef:
             tokens.append(CommandSepToken())
         return tokens[:-1]  # remove trailing CommandSepToken()
     
-    def serialize(self, **kwargs):
-        return COMMAND_SEP.join(
-            TokensContainer(*tokens).serialize(**kwargs) for tokens in self.resolve()
-        )
+    def serialize(self, debug=False, **kwargs) -> str:
+        if debug:
+            sep = colored(' |\n', 'grey')
+        else:
+            sep = COMMAND_SEP
+        try:
+            return sep.join(
+                tokens.serialize(debug=debug, **kwargs) for tokens in self.resolve()
+            )
+        except Exception as err:
+            return SerializeErrorToken(err)
     
     def __str__(self):
         return self.serialize()
     
     def resolve(self) -> List[TokensContainer]:
-        return [(cmd.resolve() if isinstance(cmd, TokensRef) else cmd) for cmd in self.get_cmds()]
+        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd]) ]
+        return resolved_cmds
 
 class Program:
     def __init__(self, *cmds: TokensContainer | TokensRef):
@@ -229,11 +247,12 @@ class Program:
     def __setitem__(self, idx, newval: TokensContainer | TokensRef):
         self.cmds[idx] = newval
     
-    def serialize(self, **kwargs):
-        return COMMAND_SEP.join(cmd.serialize(**kwargs) for cmd in self if cmd is not None)
-    
-    def __str__(self):
-        return self.serialize()
-    
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
+
+    def serialize(self, debug=False, **kwargs):
+            if debug:
+                sep = colored(' ||\n', 'grey')
+            else:
+                sep = COMMAND_SEP
+            return sep.join(cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None)
