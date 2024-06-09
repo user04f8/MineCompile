@@ -1,12 +1,11 @@
 from typing import Self, List
-from uuid import uuid4
 
-from .base import Statement, Fun, Block, TokensContainer
+from .base import Statement, Fun, Block, FunStatement, WithStatement
 from .serialize import ParseErrorToken, CommandNameToken
 from .commands import Condition, RawExecute
 from .debug_utils import *
 
-class If(Statement):
+class If(WithStatement):
     def __init__(self, condition: Condition | str, add=True):
         super().__init__([], add=add)
 
@@ -32,33 +31,31 @@ class If(Statement):
             self.cmds.append(RawExecute.as_cmd(subs=[~self.condition], run_block=self.else_block))
         return self
 
-class While(Statement):
+class While(WithStatement):
     def __init__(self, condition: Condition, add=True):
-        super().__init__([], add)
+        super().__init__([], add=add)
         self.condition = condition
     
     def __call__(self, *statements: Statement) -> Self:
-        ref = str(uuid4())
-        self.fun = Fun(ref) (
-            RawExecute.as_cmd(subs=~self.condition, run_block=CommandNameToken('return')),
-            *statements,
-            Fun.get_statement(ref).tokenize()
-        )
-        self.cmds = [
-            self.fun
-        ]
+        with Fun() as f:
+            If(self.condition) (
+                *statements,
+                f()
+            )
+        self.cmds = [FunStatement(f)]
         return self
-
+        
 class Do(Statement):
     def __init__(self, *statements: Statement, add=True):
-        self.fun_ref = Fun() (*statements)
-        
-        super().__init__([self.fun_ref], add)
-
+        super().__init__([], add)
+        self.statements = statements
+    
     def While(self, condition: Condition) -> Self:
-        # if condition.always_true:
-        #     return ParseErrorToken('Invalid infinite while loop')
-        self.condition = condition
-
+        with Fun() as f:
+            If(condition) (
+                f(),
+                self.statements
+            )
+        self.cmds = [FunStatement(f)]
         return self
 

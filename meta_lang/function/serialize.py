@@ -85,7 +85,8 @@ class ParseErrorToken(Token):
         return colored(f'$ParseError:{self.err}$', 'red', attrs=['bold'])
 
 class SerializeErrorToken(Token):
-    def __init__(self, err: str):
+    def __init__(self, err):
+        raise err
         print_err(f'serialize error {err}')
         self.err = err
 
@@ -96,16 +97,17 @@ class SerializeErrorToken(Token):
         return colored(f'$SerializeError:{self.err}$', 'red', attrs=['bold'])
 
 TOKEN_SEP = ' '
+REMOVE_TOKEN_SEP = '$remove_token_sep'
 COMMAND_SEP = '\n'
 
 class CommandSepToken(Token):
     def __str__(self):
-        return COMMAND_SEP
+        return COMMAND_SEP + REMOVE_TOKEN_SEP
     
     def debug_str(self) -> str:
-        return colored(' |SepToken|\n', 'grey')
+        return colored('|SepToken|', 'grey') + COMMAND_SEP + REMOVE_TOKEN_SEP
 
-class ChoiceSpecialToken(Token):
+class Choice(Token):
     """
     Defines a set of potential values to duplicate a list of tokens over
 
@@ -158,9 +160,11 @@ class TokensContainer:
     def tokenize(self):
         return list(self.tokens)
 
-    def serialize(self, debug=False, color=False) -> str:
+    def serialize(self, debug=False, color=False, forcecolor=None) -> str:
         def token_serialize(t: Token) -> str:
-            if debug:
+            if forcecolor:
+                return colored(str(t), forcecolor)
+            elif debug:
                 return t.debug_str()
             elif color:
                 return t.color_str()
@@ -172,7 +176,7 @@ class TokensContainer:
             assignments = {
                 choice.ident: choice.choices
                     for choice in set(
-                        choice for choice in self if isinstance(choice, ChoiceSpecialToken)
+                        choice for choice in self if isinstance(choice, Choice)
                     )
             }
 
@@ -182,7 +186,7 @@ class TokensContainer:
             for combination in combinations:
                 command_choice = []
                 for token in self:
-                    if isinstance(token, ChoiceSpecialToken):
+                    if isinstance(token, Choice):
                         index = list(assignments.keys()).index(token.ident)
                         command_choice += [token_serialize(token) for token in combination[index]]
                     else:
@@ -237,6 +241,7 @@ class TokensRef:
 class Program:
     def __init__(self, *cmds: TokensContainer | TokensRef):
         self.cmds: List[TokensContainer | TokensRef] = list(cmds)
+        self.removed = False
 
     def __len__(self):
         return len(self.cmds)
@@ -249,13 +254,16 @@ class Program:
     
     def __setitem__(self, idx, newval: TokensContainer | TokensRef):
         self.cmds[idx] = newval
+
+    def remove(self):
+        self.removed = True
     
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
 
     def serialize(self, debug=False, **kwargs):
-            if debug:
-                sep = colored(' ||\n', 'grey')
-            else:
-                sep = COMMAND_SEP
-            return sep.join(cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None)
+        if debug:
+            sep = colored(' ||\n', 'grey')
+        else:
+            sep = COMMAND_SEP
+        return ('# UNUSED\n' if self.removed else '') + sep.join(cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None)

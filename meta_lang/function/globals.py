@@ -1,9 +1,11 @@
 from typing import List, Dict, Optional
 from uuid import uuid4
+import random
+import string
 
 from .serialize import Program
 
-DATAPACK_ROOT: str = '%DATAPACK_ROOT%'
+DATAPACK_ROOT: str = '$root'
 
 class Globals:
     def __init__(self, namespace='main'):
@@ -12,7 +14,12 @@ class Globals:
         self.path: List[str] = []
         # self.path_tree: Dict[str, Dict] = {self.namespace: {}}
         self.programs: Dict[str, Program] = {self.get_full_path(): Program()}
-        self.fun = None  # : Optional[Fun]
+        self.fun = None  # : Optional[Fun]  # UNUSED, can delete
+        self.blocks = []
+
+        self.ref_graph = {}
+        self.fun_hooks = {}
+        self.resource_hooks = {} # TODO
     
     def get_full_path(self, namespace=None, path=None):
         if namespace is None:
@@ -58,19 +65,19 @@ class Globals:
 
     def gen_name(self) -> str:
         for i in range(1, 32): # 32 == len(uuid4().hex)
-            candidate_name = uuid4().hex[:i]
+            candidate_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(i)) #uuid4().hex[:i]
             if self.get_full_path(path=[*self.path, candidate_name]) not in self.programs:
                 return candidate_name
         assert False, 'Ran out of potential candidate names (candidate UUIDs not unique)'
 
-        
-    def add_cmd(self, cmd):
-        # print(f'adding {repr(cmd)}')
-        # print(f'    cmds:   {repr(cmd.get_cmds())}')
-        # print(f'    tokens: {repr(cmd.tokenize())}')
-        idx = len(self.programs[self.get_full_path()])
-        self.programs[self.get_full_path()].append(cmd)
-        return (self.get_full_path(), idx)
+    def add_statement(self, statement):
+        if self.blocks == []:
+            idx = len(self.programs[self.get_full_path()])
+            self.programs[self.get_full_path()].append(statement)
+            return (self.get_full_path(), idx)
+        else:
+            self.blocks[-1].add_statement(statement)
+            return None
 
     def clear_cmd(self, pathed_idx):
         full_path, idx = pathed_idx

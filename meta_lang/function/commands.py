@@ -2,7 +2,7 @@ from copy import deepcopy
 from enum import Enum
 from typing import List, Self, Literal, Iterable
 
-from .base import Statement, Fun, Block
+from .base import Statement, Fun, Block, FunStatement
 from .serialize import *
 from .types import *
 from .debug_utils import *
@@ -115,7 +115,7 @@ class Condition:
     def tokenize(self) -> List[Token]:
         match self.condition_type:
             case ConditionType.ANY:
-                return [ChoiceSpecialToken(*(c.tokenize() for c in self.value))]
+                return [Choice(*(c.tokenize() for c in self.value))]
             case ConditionType.ALL:
                 return [token for condition in self.value for token in condition.tokenize()]
             case _:
@@ -218,11 +218,17 @@ class RawExecute(RawCommand):
     def _gen_tokens(subs: List[ExecuteSub | Condition], run_block: Block = Block()) -> List[Token]:
         if len(run_block) == 0:
             block_tokens = []
-        if len(run_block) == 1:
-            block_tokens = run_block.single_line_tokenize()
-        elif len(run_block) > 1:
-            block_tokens = Fun()(*run_block.statements).tokenize()
-        return [token for sub in subs for token in sub.tokenize()] + [CommandKeywordToken('run')] + block_tokens
+        elif len(run_block) == 1:
+            block_tokens = [CommandKeywordToken('run')] + run_block.single_line_tokenize()
+        else:
+            print(run_block)
+            # with Fun() as f: # mishandles refs
+            #     run_block.cmds_to_global()
+            #     f_statement = f()                
+            #     block_tokens = [CommandKeywordToken('run')] + f_statement.tokenize()
+            #     f_statement.clear()
+            block_tokens = [Fun._wrap_tokens(run_block.tokenize())]
+        return [token for sub in subs for token in sub.tokenize()] + block_tokens
 
 class Advancement(RawCommand):
     NAME = 'advancement'

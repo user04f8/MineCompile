@@ -1,5 +1,30 @@
 from function import *
 
+
+# with Fun() as f:
+#     Statement('test')
+
+with PublicFun('main') as main:
+    # f()
+    # with Fun('f') as f:
+    #         If('block ~ ~ ~ air') (
+    #             Statement('tp ^ ^ ^1'),
+    #             f()
+    #         )
+    # f()
+
+    If(Condition('condition')) (
+          Statement('say hi'),
+          Statement('say bye')
+    )
+    # with While('block ~ ~ ~ air'):
+    #     Statement('tp ^ ^ ^1')
+    #     Statement('tp ~ ~ ~')
+    
+    # with If('block ~ ~ ~ air'):
+    #     Advancement.grant(Choice(Selector(), Selector('n')), '*')
+
+
 # with Pathspace('test'):
 #     Advancement.grant(Selector(), ResourceLocation('kjsakflj'))
 #     Statement('# comment here')
@@ -24,18 +49,18 @@ from function import *
 #             while_(c, b)
 #         )
 
-def while_(c: Condition, b: Block):
-    with Fun() as f:
-        If(c) (
-            *b.statements,
-            f()
-        )
+# def custom_while(c: Condition, b: Block):
+#     with Fun() as f:
+#         If(c) (
+#             *b.statements,
+#             f()
+#         )
 
-while_(
-    Condition('block ~ ~ ~ air'),
-    Block(
-        Statement('tp @s ^ ^ ^1')
-    )
-)
+# custom_while(
+#     Condition('block ~ ~ ~ air'),
+#     Block(
+#         Statement('tp @s ^ ^ ^1')
+#     )
+# )
 
-display_all()
+display_all(debug=True)
