@@ -1,6 +1,6 @@
 from termcolor import colored
 
-from .serialize import Token, StrToken, SelectorToken, Serializable
+from .serialize import Token, RawToken, SelectorToken, Serializable
 
 class Int32(Token):
     MIN = -2**31
@@ -13,7 +13,7 @@ class Int32(Token):
         return str(self.x)
 
 
-class ResourceLocation(StrToken):
+class ResourceLocation(RawToken):
     def color_str(self) -> str:
         return colored(self.__str__(), 'blue')
 

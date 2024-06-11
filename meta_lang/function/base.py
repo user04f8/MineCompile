@@ -1,6 +1,6 @@
 from copy import copy
 from enum import Enum
-from typing import List, Optional, Dict, Set
+from typing import Any, List, Optional, Dict, Set
 from pathlib import Path
 
 from .globals import GLOBALS, DATAPACK_ROOT
@@ -35,7 +35,7 @@ class Pathspace:
 class Statement(TokensRef):
     def __init__(self, cmds: str | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
         if isinstance(cmds, str):
-            self.cmds = [TokensContainer(*(StrToken(token) for token in cmd.split())) for cmd in cmds.split('\n')]
+            self.cmds = [TokensContainer(RawToken(cmd)) for cmd in cmds.split('\n')]
         elif isinstance(cmds, Token):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
@@ -183,7 +183,7 @@ class FunStatement(Statement):
     
     def __call__(self, *args):
         super().__init__(self.cmds, add=True)
-        self.fun._attach_fun_ref(path=GLOBALS.get_full_path())
+        self.fun._attach_fun_ref(path=GLOBALS.get_function_path())
 
         # vals = (Value(val, type=in_type) for in_type, val in zip(self.fun.in_types, args))
         
@@ -262,7 +262,7 @@ class Fun:
         if path:
             return ('function', path), attrs
         else:
-            return ('function', GLOBALS.get_full_path()), attrs
+            return ('function', GLOBALS.get_function_path()), attrs
     
     def __exit__(self, *args):
         GLOBALS.exit_path(self.name)
@@ -271,6 +271,7 @@ class Fun:
     def __call__(self, *args) -> FunStatement:
         if self.inline:
             if self.inline_block is None:
+                print_debug(f'deprecated inline Fun {self.namespace}:{'/'.join(self.path)}')
                 self.inline_block = Block(*args)
                 self.inline_block.clear()
 
@@ -280,7 +281,7 @@ class Fun:
             else:
                 raise ValueError('Function block already assigned')
         else:
-            print_debug(f'implicit function->function_statement call {self.namespace}:{'/'.join(self.path)}')
+            print_debug(f'implicit function->statement call {self.namespace}:{'/'.join(self.path)}')
             fun_statement = FunStatement(self)
             fun_statement.__call__(*args)
             return fun_statement
@@ -313,13 +314,13 @@ class Fun:
     def _attach_fun_ref(self, path: str):
         self._attach_ref(self._gen_ref(path=path))
     
-    def _attach_ref(self, ref: Tuple[Tuple[str, str], Tuple[str, ...]]):
-        print_debug(f'attaching ref to {self.name}: {ref}')
-        self.refs.add(ref)
+    def _attach_ref(self, caller_ref: Tuple[Tuple[str, str], Tuple[str, ...]]):
+        # print_debug(f'attaching ref to {self.name}: {caller_ref}')
+        self.refs.add(caller_ref)
         if self.ref in GLOBALS.ref_graph:
-            GLOBALS.ref_graph[self.ref].add(ref)
+            GLOBALS.ref_graph[self.ref].add(caller_ref)
         else:
-            GLOBALS.ref_graph[self.ref] = {ref}
+            GLOBALS.ref_graph[self.ref] = {caller_ref}
 
 class PublicFun(Fun):
     def __init__(self, name: str):
@@ -327,25 +328,21 @@ class PublicFun(Fun):
 
     def __enter__(self):
         out = super().__enter__()
-        self._attach_hook('%PUBLIC%')
+        self._attach_hook('$public')
         return out
 
-class SimpleFun:
-    def __init__(self, name: Optional[str] = None):
-        if name is None:
-            self.name = GLOBALS.gen_name()
-        else:
-            self.name = name
-        self.namespace = None
-        self.path = None
-        self.block = None
-        
+class TickingFun(Fun):
+    def __enter__(self):
+        out = super().__enter__()
+        self._attach_hook('#minecraft:tick')
+        return out
 
-# def resolve_refs() -> List[Command]:
-#     cmds = deepcopy(GLOBALS.cmds)
-#     for _, file_cmds in cmds.items():
-#         [(cmd.resolve() if isinstance(cmd, CommandRef) else cmd) for cmd in file_cmds if cmd is not None]
-#     return cmds
+class OnLoadFun(Fun):
+    def __enter__(self):
+        out = super().__enter__()
+        self._attach_hook('#minecraft:load')
+        return out
+
 
 def compile_program(program: Program, **serialize_kwargs):
     s = program.serialize(**serialize_kwargs)
@@ -358,12 +355,14 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
     for hook, hooked_fun in GLOBALS.fun_hooks.items():
         hook: str
         hooked_fun: Fun
-        pass
+        if hook[0] == '#':
+            # handle tags
+            namespace, tag_path = hook[1:].split(':')
+            GLOBALS.bind_function_tag(tag_path, )
+
     def prune_refs(graph: Dict[Tuple[str, str], Set[Tuple[Tuple[str, str], Tuple[str, ...]]]]):
-        def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]] = set()) -> Optional[str]:
-            print_debug(f'dfs call at node {source} {discovered}')
+        def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]]) -> Optional[str]:
             if source not in graph.keys():
-                print_warn(f'invalid ref: {source}')
                 return None
             for u, u_attrs in graph[source]:
                 if u[0] == '$extern':
@@ -373,41 +372,38 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
                     discovered.add(u)
                     extern_ref = dfs_to_extern(u, discovered)
                     if extern_ref:
-                        print_debug(f'dfs return at node {source} {discovered}')
                         return extern_ref
-            print_debug(f'dfs return at node {source} {discovered}')
             return None
         
-        for fun_path in programs.keys():
+        
+        for fun_path, fun_program in programs.items():
             u = ('function', fun_path)
-            extern_ref = dfs_to_extern(u)
+            extern_ref = dfs_to_extern(u, set())
             print_debug(f'external_ref for {u}: {extern_ref}')
             if extern_ref is None:
                 match u:
                     case ('function', path):
                         if GLOBALS.programs[path].cmds:
-                            print_warn(f'Pruning unreferenced function at {path}')
-                            print_debug(f'cmds: {GLOBALS.programs[path].cmds}')
+                            fun_serial = GLOBALS.programs[path].serialize()
+                            print_warn(f'Pruning unreferenced function at {path} {fun_serial[:15]}{'...' if len(fun_serial) > 15 else ''}')
                         programs[path].remove()
-                        
-        
-        pass
+    
     prune_refs(GLOBALS.ref_graph)
 
     
+    if debug:
+        # display refs
+        print(GLOBALS.ref_graph)
 
     
-    
-    
-    
-    out_files: Dict[Path, str] = {}
+    out_files: Dict[str, str] = {}
     
     for file_path, program in programs.items():
         if any(file_cmd is not None for file_cmd in program):
-            file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
-                       
+            
             out_files[file_path] = compile_program(program, color=color, debug=debug)
             if write:
+                file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
                 file_path = Path(file_path)
                 file_path.mkdir(parents=True, exist_ok=True)
                 with open(file_path, 'w') as f:

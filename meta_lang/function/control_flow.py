@@ -42,8 +42,11 @@ class While(WithStatement):
                 *statements,
                 f()
             )
-        self.cmds = [FunStatement(f)]
-        return self
+        f()
+        self.cmds = []
+        return None
+        # self.cmds = [FunStatement(f)]
+        # return self
         
 class Do(Statement):
     def __init__(self, *statements: Statement, add=True):

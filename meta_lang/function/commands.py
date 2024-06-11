@@ -121,7 +121,7 @@ class Condition:
             case _:
                 match self.condition_type:
                     case ConditionType.STR:
-                        tokens = [StrToken(self.value)]
+                        tokens = [RawToken(self.value)]
                 return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), *tokens]
             
 
@@ -221,13 +221,12 @@ class RawExecute(RawCommand):
         elif len(run_block) == 1:
             block_tokens = [CommandKeywordToken('run')] + run_block.single_line_tokenize()
         else:
-            print(run_block)
             # with Fun() as f: # mishandles refs
             #     run_block.cmds_to_global()
             #     f_statement = f()                
             #     block_tokens = [CommandKeywordToken('run')] + f_statement.tokenize()
             #     f_statement.clear()
-            block_tokens = [Fun._wrap_tokens(run_block.tokenize())]
+            block_tokens = [CommandKeywordToken('run'), Fun._wrap_tokens(run_block.tokenize())]
         return [token for sub in subs for token in sub.tokenize()] + block_tokens
 
 class Advancement(RawCommand):

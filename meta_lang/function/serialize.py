@@ -6,6 +6,14 @@ from enum import StrEnum
 from termcolor import colored
 from .debug_utils import *
 
+class _Colors:
+    # termcolor colors for each token type
+    RAW = 'light_green' # harcoded to be on_color='on_black'
+    COMMAND = 'light_magenta' # hardcoded to be bold
+    SUBCOMMAND = 'light_magenta'
+    FUNCTION = 'light_cyan' # hardcoded to be underlined
+    STR = 'green'
+
 class SubToken:
     def __init__(self):
         pass
@@ -41,6 +49,16 @@ class Serializable(Token):
     def __str__(self):
         return self.token.__str__()
     
+class RawToken(Token):
+    def __init__(self, s: str):
+        self.s = s
+
+    def __str__(self):
+        return self.s
+    
+    def color_str(self) -> str:
+        return colored(self.__str__(), _Colors.RAW, on_color='on_black')
+    
 class StrToken(Token):
     def __init__(self, s: str):
         self.s = s
@@ -49,15 +67,16 @@ class StrToken(Token):
         return self.s
     
     def color_str(self) -> str:
-        return colored(self.__str__(), 'green')
-    
-class CommandNameToken(StrToken):
-    def color_str(self) -> str:
-        return colored(self.__str__(), 'magenta', attrs=["bold"])
+        return colored(self.__str__(), _Colors.STR)
 
-class CommandKeywordToken(StrToken):
+    
+class CommandNameToken(RawToken):
     def color_str(self) -> str:
-        return colored(self.__str__(), 'magenta')
+        return colored(self.__str__(), _Colors.COMMAND, attrs=["bold"])
+
+class CommandKeywordToken(RawToken):
+    def color_str(self) -> str:
+        return colored(self.__str__(), _Colors.SUBCOMMAND)
 
 class FunctionToken(Token):
     def __init__(self, namespace: str, path: List[str]):
@@ -68,7 +87,8 @@ class FunctionToken(Token):
         return f'function {self.namespace}:{'/'.join(self.path)}'
     
     def color_str(self):
-        return colored(self.__str__(), 'magenta', attrs=["bold"])
+        command, arg = self.__str__().split(' ')
+        return colored(command, _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(arg, _Colors.FUNCTION, attrs=["underline"])
 
 class TokenError(Exception):
     pass
@@ -266,4 +286,4 @@ class Program:
             sep = colored(' ||\n', 'grey')
         else:
             sep = COMMAND_SEP
-        return ('# UNUSED\n' if self.removed else '') + sep.join(cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None)
+        return ('# UNUSED\n' if self.removed else '') + sep.join(s for s in (cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None) if s is not '')

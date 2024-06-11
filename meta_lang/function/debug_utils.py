@@ -15,4 +15,4 @@ def print_warn(msg):
 
 def print_debug(msg):
     if DEBUG:
-        cprint(f'debug: {msg}', 'grey')
+        cprint(f'debug: {msg}', 'light_grey')
