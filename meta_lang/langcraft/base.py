@@ -114,7 +114,7 @@ class Args:
         #         raise Exception('Args() initialized outside of a Fun')
         #     fun = GLOBALS.fun
         # self.fun: Fun = fun
-        self.args = [Arg(0, type_) for type_ in self.fun.in_types]
+        self.args = [Arg(i, type_) for i, type_ in enumerate(fun.in_types)]
 
     def __iter__(self):
             return self.args.__iter__()

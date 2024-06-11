@@ -1,4 +1,4 @@
-from function import *
+from langcraft import *
 
 
 # with Fun() as f:
