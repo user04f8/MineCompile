@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .globals import GLOBALS, DATAPACK_ROOT
 from .serialize import *
+from .json_utils import *
 from .types import *
 from .debug_utils import *
 
@@ -32,10 +33,98 @@ class Pathspace:
     def __exit__(self, *args):
         GLOBALS.exit_path(self.name)
 
+
+class ArgType(Enum):
+    STATIC = 0
+    INT = 1
+    
+    # TUPLE = 10
+
+    UNKOWN = -1
+
+    @staticmethod
+    def from_type(t):
+        return {
+            int: ArgType.INT,
+        }.get(t, ArgType.UNKOWN)
+
+    @staticmethod
+    def infer(x):
+        match x:
+            # case tuple(xs) | list(xs):
+            #     self.type = SimpleValType.TUPLE
+            #     self.types = tuple(ValType(x) for x in xs)
+            case int(x):
+                return ArgType.INT
+            case _:
+                return ArgType.UNKOWN
+    
+    def cast(self, x):
+        match self:
+            case ArgType.INT:
+                return Int32(x)
+            case _:
+                raise TypeError(f"Type {self} doesn't support input {x}")
+            
+class ValueRef:
+    pass
+    # def __init__(self, x, type: Optional[ArgType]):
+    #     if type is None:
+    #         self.type = ArgType.infer(x)
+    #     else:
+    #         x = type.cast(x)
+    #         self.type = type
+    #     self.x = x
+
+class StaticValueRef:
+    def __init__(self, static_type):
+        self.static_type = static_type
+
+    def __class_getitem__(self, static_type):
+        return StaticValueRef(static_type=static_type)
+
+
+class Arg(TokensRef):
+    def __init__(self, ident: int, type_: ValueRef | StaticValueRef):
+        self.ident = ident
+        if isinstance(type_, ValueRef):
+            self.type_ = type_
+        else:
+            self.type_ = StaticValueRef[type_]
+        self.static_value = None
+
+    def assign(self, val):
+        if isinstance(self._type, StaticValueRef):
+            self.static_assign(val)
+        else:
+            raise NotImplementedError()
+
+    def static_assign(self, val):
+        assert isinstance(val, self.type_.static_type), "Type mismatch in static arg: {val} is not instance of {self.type_.static_type}"
+        self.static_value = val
+
+    def get_cmds(self):
+        if isinstance(self.type_, StaticValueRef):
+            return [TokensContainer(RawToken(f'$arg:{self.i}'))]
+
+class Args:
+    def __init__(self, fun=None):
+        # if fun is None:
+        #     if GLOBALS.fun is None:
+        #         raise Exception('Args() initialized outside of a Fun')
+        #     fun = GLOBALS.fun
+        # self.fun: Fun = fun
+        self.args = [Arg(0, type_) for type_ in self.fun.in_types]
+
+    def __iter__(self):
+            return self.args.__iter__()
+
 class Statement(TokensRef):
-    def __init__(self, cmds: str | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
+    def __init__(self, cmds: str | Arg | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
         if isinstance(cmds, str):
             self.cmds = [TokensContainer(RawToken(cmd)) for cmd in cmds.split('\n')]
+        elif isinstance(cmds, Arg):
+            self.cmds = [cmds]
         elif isinstance(cmds, Token):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
@@ -93,7 +182,7 @@ class EmptyStatement(TokensRef):
 
 class Block(Statement):
     def __init__(self, *statements: Statement | str):
-        self.statements = tuple((Statement(statement) if isinstance(statement, str) else statement) for statement in statements)
+        self.statements = [(Statement(statement) if isinstance(statement, str) else statement) for statement in statements]
 
     def get_cmds(self) -> List[TokensContainer]:
         return [cmd for statement in self.statements for cmd in statement.get_cmds()]
@@ -109,72 +198,6 @@ class Block(Statement):
         for statement in self.statements:
             statement.clear()
 
-class ArgType(Enum):
-    STATIC = 0
-    INT = 1
-    
-    # TUPLE = 10
-
-    UNKOWN = -1
-
-    @staticmethod
-    def from_type(t):
-        return {
-            int: ArgType.INT,
-        }.get(t, ArgType.UNKOWN)
-
-    @staticmethod
-    def infer(x):
-        match x:
-            # case tuple(xs) | list(xs):
-            #     self.type = SimpleValType.TUPLE
-            #     self.types = tuple(ValType(x) for x in xs)
-            case int(x):
-                return ArgType.INT
-            case _:
-                return ArgType.UNKOWN
-    
-    def cast(self, x):
-        match self:
-            case ArgType.INT:
-                return Int32(x)
-            case _:
-                raise TypeError(f"Type {self} doesn't support input {x}")
-            
-class ValueRef:
-    pass
-    # def __init__(self, x, type: Optional[ArgType]):
-    #     if type is None:
-    #         self.type = ArgType.infer(x)
-    #     else:
-    #         x = type.cast(x)
-    #         self.type = type
-    #     self.x = x
-
-class StaticValueRef:
-    def __class_getitem__(self, static_type):
-        self.static_type = static_type
-
-
-class Arg(TokensRef):
-    def __init__(self, i, type_):
-        self.i = i
-        self.type_: ValueRef | StaticValueRef
-        if not isinstance(type_, ValueRef):
-            self.type_ = StaticValueRef[type_]
-
-class Args:
-    def __init__(self, fun=None):
-        if fun is None:
-            if GLOBALS.fun is None:
-                raise Exception('Args() initialized outside of a Fun')
-            fun = GLOBALS.fun
-        self.fun: Fun = fun
-        self.args = [(Arg(0, type_) if isinstance(type_, ValueRef) else type_()) for type_ in self.fun.in_types]
-
-    def __iter__(self):
-            return self.args.__iter__()
-
 class FunStatement(Statement):
     def __init__(self, fun: 'Fun'):
         self.fun = fun
@@ -182,6 +205,7 @@ class FunStatement(Statement):
         self.idx = None
     
     def __call__(self, *args):
+        
         super().__init__(self.cmds, add=True)
         self.fun._attach_fun_ref(path=GLOBALS.get_function_path())
 
@@ -218,7 +242,7 @@ class Fun:
         self.in_types: Tuple[ArgType] | ArgType | None = None
 
         self.ref = None
-        
+        self.args = None
         self.refs = set()
     
     @classmethod
@@ -253,9 +277,11 @@ class Fun:
         if self.in_types is None:
             return self
         elif isinstance(self.in_types, ArgType):
-            return self, Arg(0, self.in_types)
+            self.args = [Arg(0, self.in_types)]
+            return self, self.args
         else:
-            return self, Args(self)
+            self.args = [arg for arg in Args(self)]
+            return self, self.args
         
     @staticmethod
     def _gen_ref(path=None, attrs: tuple = ()) -> Tuple[Tuple[str, str], Tuple[str, ...]]:
@@ -350,15 +376,17 @@ def compile_program(program: Program, **serialize_kwargs):
     s = s.replace(REMOVE_TOKEN_SEP + TOKEN_SEP, '')
     return s
 
-def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', write=False, color=False, debug=False) -> Dict[str, str]:
+def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dict[str, Any] = None, jsons: Dict[str, JSON] = GLOBALS.jsons, root_dir: str = './datapacks/testing/data', write=False, color=False, debug=False) -> Dict[str, str]:
     # prune refs
-    for hook, hooked_fun in GLOBALS.fun_hooks.items():
+    for hook, hooked_funs in GLOBALS.fun_hooks.items():
         hook: str
-        hooked_fun: Fun
+        hooked_funs: Fun
         if hook[0] == '#':
             # handle tags
             namespace, tag_path = hook[1:].split(':')
-            GLOBALS.bind_function_tag(tag_path, )
+            with Namespace(name=namespace, full_path=tag_path.split('/')):
+                hooked_fun_names = [serialize_function_name(hooked_fun.namespace, hooked_fun.path) for hooked_fun in hooked_funs]
+                GLOBALS.add_to_function_tag(None, hooked_fun_names)
 
     def prune_refs(graph: Dict[Tuple[str, str], Set[Tuple[Tuple[str, str], Tuple[str, ...]]]]):
         def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]]) -> Optional[str]:
@@ -379,7 +407,7 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
         for fun_path, fun_program in programs.items():
             u = ('function', fun_path)
             extern_ref = dfs_to_extern(u, set())
-            print_debug(f'external_ref for {u}: {extern_ref}')
+            # print_debug(f'external_ref for {u}: {extern_ref}')
             if extern_ref is None:
                 match u:
                     case ('function', path):
@@ -389,18 +417,26 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
                         programs[path].remove()
     
     prune_refs(GLOBALS.ref_graph)
-
     
     if debug:
         # display refs
-        print(GLOBALS.ref_graph)
-
+        print_debug(f'ref graph: {GLOBALS.ref_graph}')
     
     out_files: Dict[str, str] = {}
+
+    # json
+    for file_path, json_ in jsons.items():
+        out_files[file_path] = json_.serialize(debug=debug, color=color)
+        if write:
+            file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.json\n'
+            file_path = Path(file_path)
+            file_path.mkdir(parents=True, exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(out_files[file_path])
     
+    # function
     for file_path, program in programs.items():
         if any(file_cmd is not None for file_cmd in program):
-            
             out_files[file_path] = compile_program(program, color=color, debug=debug)
             if write:
                 file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
@@ -408,6 +444,9 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, root_dir: str =
                 file_path.mkdir(parents=True, exist_ok=True)
                 with open(file_path, 'w') as f:
                     f.write(out_files[file_path])
+
+    # TODO nbt structures
+
 
     return out_files
 

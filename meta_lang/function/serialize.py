@@ -8,23 +8,17 @@ from .debug_utils import *
 
 class _Colors:
     # termcolor colors for each token type
+    DEFAULT = 'white'
     RAW = 'light_green' # harcoded to be on_color='on_black'
     COMMAND = 'light_magenta' # hardcoded to be bold
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan' # hardcoded to be underlined
     STR = 'green'
 
-class SubToken:
-    def __init__(self):
-        pass
-
-    def __str__(self) -> str:
-        raise NotImplementedError
-    
-    def __format__(self, format_spec: str) -> str:
-        return str(self)
-
-# TOKENS
+    SERIALIZABLE = {
+        'Selector': 'cyan',
+        'ResourceLocation': 'blue'
+    }
 
 class Token:
     def __init__(self):
@@ -34,7 +28,7 @@ class Token:
         raise NotImplementedError
     
     def color_str(self) -> str:
-        return self.__str__()
+        return colored(self.__str__(), _Colors.DEFAULT)
     
     def debug_str(self) -> str:
         return self.color_str()
@@ -48,6 +42,9 @@ class Serializable(Token):
     
     def __str__(self):
         return self.token.__str__()
+    
+    def color_str(self) -> str:
+        return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.DEFAULT))
     
 class RawToken(Token):
     def __init__(self, s: str):
@@ -69,7 +66,6 @@ class StrToken(Token):
     def color_str(self) -> str:
         return colored(self.__str__(), _Colors.STR)
 
-    
 class CommandNameToken(RawToken):
     def color_str(self) -> str:
         return colored(self.__str__(), _Colors.COMMAND, attrs=["bold"])
@@ -77,6 +73,13 @@ class CommandNameToken(RawToken):
 class CommandKeywordToken(RawToken):
     def color_str(self) -> str:
         return colored(self.__str__(), _Colors.SUBCOMMAND)
+    
+def serialize_function_name(namespace, path, color=False):
+    s = f'{namespace}:{'/'.join(path)}'
+    if color:
+        return colored(s, _Colors.FUNCTION, attrs=["underline"])
+    
+    return s
 
 class FunctionToken(Token):
     def __init__(self, namespace: str, path: List[str]):
@@ -84,11 +87,10 @@ class FunctionToken(Token):
         self.path = path
 
     def __str__(self):
-        return f'function {self.namespace}:{'/'.join(self.path)}'
+        return f'function {serialize_function_name(self.namespace, self.path)}'
     
     def color_str(self):
-        command, arg = self.__str__().split(' ')
-        return colored(command, _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(arg, _Colors.FUNCTION, attrs=["underline"])
+        return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
 
 class TokenError(Exception):
     pass
@@ -125,7 +127,7 @@ class CommandSepToken(Token):
         return COMMAND_SEP + REMOVE_TOKEN_SEP
     
     def debug_str(self) -> str:
-        return colored('|SepToken|', 'grey') + COMMAND_SEP + REMOVE_TOKEN_SEP
+        return colored('¦', 'grey') + COMMAND_SEP + REMOVE_TOKEN_SEP
 
 class Choice(Token):
     """
@@ -148,13 +150,48 @@ class Choice(Token):
         self.ident = ident
         if self.ident is None:
             self.uuid = uuid4()
-            self.ident = str(self.uuid)
 
     def __hash__(self):
         if self.ident is None:
             return self.uuid.int
         else:
             return hash(self.ident)
+
+class ChoiceSepToken(Token):
+    pass
+
+class Flag:
+    def __init__(self, name=None, resource_loc='_internal:flags'):
+        if name is None:
+            name = uuid4().hex
+        self.name = name
+        self.resource_loc = resource_loc
+
+    def serialize(self):
+        return f'storage {self.resource_loc} {self.name}'
+
+class ResetFlagToken(Token):
+    def __init__(self, flag: Flag):
+        self.flag = flag
+
+    def __str__(self):
+        return f'data remove {self.flag.serialize()}'
+
+class SetFlagToken(Token):
+    def __init__(self, flag: Flag):
+        self.flag = flag
+
+    def __str__(self):
+        return f'data modify {self.flag.serialize()} set value 1'
+    
+class CheckFlagToken(Token):
+    def __init__(self, flag: Flag):
+        self.flag = flag
+
+    def __str__(self):
+        return f'data {self.flag.serialize()}'
+    
+
 
 class SelectorToken(Token):
     def __init__(self, s: str = 's', **kwargs):
@@ -211,12 +248,11 @@ class TokensContainer:
                         command_choice += [token_serialize(token) for token in combination[index]]
                     else:
                         command_choice.append(token_serialize(token))
-                command_choices.append(TOKEN_SEP.join(command_choice))
+                command_choices.append(('  ' if debug and len(combinations) > 1 else '') + TOKEN_SEP.join(command_choice))
             if debug:
-                sep = colored(' |Choice|\n', 'grey')
+                return colored(' |\n', 'grey').join(command_choices)
             else:
-                sep = COMMAND_SEP
-            return sep.join(command_choices)
+                return COMMAND_SEP.join(command_choices)
         except Exception as e:
             return SerializeErrorToken(e)
              

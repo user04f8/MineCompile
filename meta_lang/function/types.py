@@ -13,16 +13,13 @@ class Int32(Token):
         return str(self.x)
 
 
-class ResourceLocation(RawToken):
-    def color_str(self) -> str:
-        return colored(self.__str__(), 'blue')
+class ResourceLocation(Serializable):
+    def __init__(self, s = 's', **kwargs):
+        self.token: RawToken = RawToken(s, **kwargs)
 
 class Selector(Serializable):
     def __init__(self, s = 's', **kwargs):
         self.token: SelectorToken = SelectorToken(s, **kwargs)
-
-    def color_str(self) -> str:
-        return colored(self.__str__(), 'cyan')
 
     def as_(self):
         return [self.token] # TODO

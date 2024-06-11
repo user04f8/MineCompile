@@ -33,7 +33,7 @@ class Globals:
     
     # get_structure_path
 
-    def get_json_path(self, folder: str, add_to_path: str = None, namespace=None, path=None):
+    def get_json_path(self, folder: str, add_to_path: Optional[str] = None, namespace=None, path=None):
         if namespace is None:
             namespace = self.namespace
         if path is None:
@@ -68,7 +68,7 @@ class Globals:
     def exit_path(self, name=None):
         exited_path = self.path.pop()
         if name is not None:
-            assert exited_path == name, 'Path entered does not match path exited'
+            assert exited_path == name, f'Path entered does not match path exited: {exited_path} != {name}'
         self.add_current_path()
 
     def add_current_path(self):
@@ -110,7 +110,7 @@ class Globals:
         else:
             self.jsons[path].add(json)
 
-    def strict_add_json(self, folder: str, name: str, json: JSON, base: Optional[Callable] = None):
+    def strict_add_json(self, folder: str, name: Optional[str], json: JSON, base: Optional[Callable] = None):
         path = self.get_json_path(folder, add_to_path=name)
         if path not in self.jsons:
             if base is not None:
@@ -121,8 +121,8 @@ class Globals:
             self.jsons[path].strict_add(json)
 
     # TAGS
-    def add_to_function_tag(self, name: str, function_names: List[str]):
-        self.strict_add_json('tags/function', name, FunctionJSON(function_names), base=FunctionJSON())
+    def add_to_function_tag(self, name: Optional[str], function_names: List[str]):
+        self.strict_add_json('tags/function', name, FunctionJSON(function_names), base=FunctionJSON)
     
     def set_tag(self, name, json, tag_type):
         # tag_type can be ['function', 'block', 'entity_type', 'fluid', 'game_event', 'item'] or any registry

@@ -1,4 +1,5 @@
 from typing import Self, List, Dict
+import json
 
 class JSONtemplate:
     def __init__(self, type_dict: dict, cls_dict: dict):
@@ -31,6 +32,12 @@ class JSON:
     
     def __str__(self) -> str:
         return str(self.obj)
+    
+    def serialize(self, debug=False, color=False):
+        if debug:
+            return json.dumps(self.obj, indent=2, sort_keys=True)
+        else:
+            return json.dumps(self.obj)
     
     def add(self, json: Self):
         for name, val in json.obj.items():
@@ -73,7 +80,7 @@ fun_base = JSON(
 )
 
 class FunctionJSON(JSON):
-    def __init__(self, functions: List[str]):
+    def __init__(self, functions: List[str] = []):
         super().__init__(# $optional: replace=False,
                          values=functions # list of function resource locations and function tags e.g. #namespace:path/to/tag
                          )

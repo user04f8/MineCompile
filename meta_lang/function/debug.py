@@ -10,13 +10,18 @@ def display_all(programs: Dict[Path, Program] = GLOBALS.programs, root_dir: str 
     compiled = compile_all(programs, root_dir, debug=debug, color=color)
     for file_path, serialized_file in compiled.items():
         
-        root, namespace, folder, *path = file_path.split('/')
+        root, namespace, *path = file_path.split('/')
 
         if color:
-            if folder == 'function':
-                print(colored(namespace + ':' + '/'.join(path), 'light_cyan', attrs=['bold', 'underline']))
-            else:
-                print(colored(file_path, 'blue', attrs=['bold', 'underline']))
+            match path:
+                case ['function', *path]:
+                    print(colored(namespace + ':' + '/'.join(path), 'light_cyan', attrs=['bold', 'underline']))
+                case ['tags', 'function', *path]:
+                    print(colored('#' + namespace + ':' + '/'.join(path), 'cyan', attrs=['bold', 'underline']))
+                case ['tags', *path]:
+                    print(colored('#' + namespace + ':' + '/'.join(path), 'cyan', attrs=['bold', 'underline']))
+                case _:
+                    print(colored(file_path, 'blue', attrs=['bold', 'underline']))
         else:
             print(file_path, end='')
         print('\n'.join('  ' + s for s in serialized_file.split('\n')))
