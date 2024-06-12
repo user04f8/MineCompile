@@ -1,6 +1,6 @@
 from copy import copy
 from enum import Enum
-from typing import Any, List, Optional, Dict, Set
+from typing import Any, Callable, List, Optional, Dict, Set
 from pathlib import Path
 
 from .globals import GLOBALS, DATAPACK_ROOT
@@ -35,11 +35,8 @@ class Pathspace:
 
 
 class ArgType(Enum):
-    STATIC = 0
     INT = 1
-    
     # TUPLE = 10
-
     UNKOWN = -1
 
     @staticmethod
@@ -66,8 +63,7 @@ class ArgType(Enum):
             case _:
                 raise TypeError(f"Type {self} doesn't support input {x}")
             
-class ValueRef:
-    pass
+# class ValueRef:
     # def __init__(self, x, type: Optional[ArgType]):
     #     if type is None:
     #         self.type = ArgType.infer(x)
@@ -76,65 +72,105 @@ class ValueRef:
     #         self.type = type
     #     self.x = x
 
-class StaticValueRef:
-    def __init__(self, static_type):
-        self.static_type = static_type
-
-    def __class_getitem__(self, static_type):
-        return StaticValueRef(static_type=static_type)
-
-
 class Arg(TokensRef):
-    def __init__(self, ident: int, type_: ValueRef | StaticValueRef):
+    def __init__(self, ident: int, type_: ArgType):
         self.ident = ident
-        if isinstance(type_, ValueRef):
+        if isinstance(type_, ArgType):
             self.type_ = type_
         else:
-            self.type_ = StaticValueRef[type_]
+            raise TypeError()
         self.static_value = None
 
     def assign(self, val):
-        if isinstance(self._type, StaticValueRef):
-            self.static_assign(val)
-        else:
-            raise NotImplementedError()
-
-    def static_assign(self, val):
-        assert isinstance(val, self.type_.static_type), "Type mismatch in static arg: {val} is not instance of {self.type_.static_type}"
-        self.static_value = val
+        raise NotImplementedError()
 
     def get_cmds(self):
-        if isinstance(self.type_, StaticValueRef):
-            return [TokensContainer(RawToken(f'$arg:{self.i}'))]
+        return [TokensContainer(ArgToken(self.ident))]
 
 class Args:
     def __init__(self, fun=None):
-        # if fun is None:
-        #     if GLOBALS.fun is None:
-        #         raise Exception('Args() initialized outside of a Fun')
-        #     fun = GLOBALS.fun
-        # self.fun: Fun = fun
         self.args = [Arg(i, type_) for i, type_ in enumerate(fun.in_types)]
 
     def __iter__(self):
             return self.args.__iter__()
 
+class MetaArg(Token):
+    def __init__(self, id: int):
+        self.id = id
+
+    def assign(self, val):
+        self.val = val
+
+    def __str__(self):
+        if hasattr(self, 'val'):
+            return str(self.val)
+        else:
+            return f'$meta_arg:{self.id}'
+
+class MetaArgs:
+    def __init__(self):
+        self.len = 0
+        self.args = []
+
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        arg = MetaArg(self.len)
+        self.args.append(arg)
+        self.len += 1
+        return arg
+
+class Partial:
+    def __init__(self, inner_fun: Callable[[str], Callable]):
+        self.inner_fun = inner_fun
+        
+    def __enter__(self):
+        self.inner_fun_name = GLOBALS.gen_name()
+        self.f = self.inner_fun(name=self.inner_fun_name).__enter__()
+        if isinstance(self.f, tuple):
+            self.f, self.f_args = self.f
+        else:
+            self.f_args = None
+        self.meta_args = MetaArgs()
+        def h(*meta_args):
+            for meta_arg, arg in zip(self.meta_args.args, meta_args):
+                meta_arg.assign(arg)
+            def g(*args):
+                self.inner_fun(name=self.inner_fun_name)(*args)
+            return g
+        def get_args(n: int = None):
+            if n is None:
+                return next(self.meta_args)
+            else:
+                return [next(self.meta_args) for _ in range(n)]
+        if self.f_args:
+            return (h, self.f_args), get_args
+        else:
+            return h, get_args
+    
+    def __exit__(self, *args):
+        self.f.__exit__()
+
 class Statement(TokensRef):
-    def __init__(self, cmds: str | Arg | Token | TokensContainer | List[Token] | List[TokensContainer], add=True):
+    def __init__(self, cmds: str | Arg | Token | TokensContainer | List[Token] | List[TokensContainer], *, add=True):
         if isinstance(cmds, str):
             self.cmds = [TokensContainer(RawToken(cmd)) for cmd in cmds.split('\n')]
         elif isinstance(cmds, Arg):
-            self.cmds = [cmds]
+            self.cmds = cmds.get_cmds()
         elif isinstance(cmds, Token):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
             self.cmds = [cmds]
         elif isinstance(cmds, List | Tuple):
             if len(cmds) == 0:
-                self.cmds: List[TokensContainer] = []
+                self.cmds = []
             elif isinstance(cmds[0], Token):
                 self.cmds = [TokensContainer(*cmds)]
             elif isinstance(cmds[0], TokensContainer):
+                self.cmds = cmds
+            else:
+                print_warn(f'Unrecognized {type(cmds)}: {cmds}')
                 self.cmds = cmds
         else:
             raise TypeError(f"Invalid type for Statement cmds {type(cmds)}")
@@ -205,7 +241,8 @@ class FunStatement(Statement):
         self.idx = None
     
     def __call__(self, *args):
-        
+        for fun_arg, arg in zip(self.fun.args, args):
+            fun_arg.assign(arg)
         super().__init__(self.cmds, add=True)
         self.fun._attach_fun_ref(path=GLOBALS.get_function_path())
 
@@ -242,21 +279,27 @@ class Fun:
         self.in_types: Tuple[ArgType] | ArgType | None = None
 
         self.ref = None
-        self.args = None
+        self.args = []
         self.refs = set()
     
     @classmethod
-    def get_statement(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
+    def statement(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
         return FunStatement(cls(name=name, namespace=namespace, path=path))
+    
+    @classmethod
+    def callable(cls, *in_types):
+        return lambda name: Fun(name)[*in_types]
 
-    def __class_getitem__(self, types):
-        if isinstance(types, tuple):
-            self.out_types = tuple(ArgType.from_type(t) for t in types)
-        else:
-            self.out_types = ArgType.from_type(types)
+    def __class_getitem__(self, types: type | Tuple[type]):
+        self.out_types = types
+        # if isinstance(types, tuple):
+        #     self.out_types = tuple(ArgType.from_type(t) for t in types)
+        # else:
+        #     self.out_types = ArgType.from_type(types)
         return self
 
-    def __getitem__(self, types):
+    def __getitem__(self, types: type | Tuple[type]):
+        self.in_types = types
         if isinstance(types, tuple):
             self.in_types = tuple(ArgType.from_type(t) for t in types)
         else:
@@ -293,7 +336,7 @@ class Fun:
     def __exit__(self, *args):
         GLOBALS.exit_path(self.name)
         GLOBALS.fun = self.parent
-       
+    
     def __call__(self, *args) -> FunStatement:
         if self.inline:
             if self.inline_block is None:
@@ -413,7 +456,7 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
                     case ('function', path):
                         if GLOBALS.programs[path].cmds:
                             fun_serial = GLOBALS.programs[path].serialize()
-                            print_warn(f'Pruning unreferenced function at {path} {fun_serial[:15]}{'...' if len(fun_serial) > 15 else ''}')
+                            print_warn(f'Pruning unreferenced function at {path}: {fun_serial[:32].replace('\n', ' || ')}{'...' if len(fun_serial) > 32 else ''}')
                         programs[path].remove()
     
     prune_refs(GLOBALS.ref_graph)

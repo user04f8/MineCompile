@@ -6,28 +6,30 @@ from enum import StrEnum
 from termcolor import colored
 from .debug_utils import *
 
+_Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "cyan", "light_grey",
+    "dark_grey", "light_red", "light_green", "light_yellow", "light_blue", "light_magenta", "light_cyan", "white",
+]
 class _Colors:
     # termcolor colors for each token type
     DEFAULT = 'white'
-    RAW = 'light_green' # harcoded to be on_color='on_black'
+    RAW = 'light_green' # hardcoded to be on_color='on_black'
     COMMAND = 'light_magenta' # hardcoded to be bold
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan' # hardcoded to be underlined
     STR = 'green'
 
-    SERIALIZABLE = {
+    SERIALIZABLE: Dict[str, _Color] = {
         'Selector': 'cyan',
         'ResourceLocation': 'blue'
     }
 
-class Token:
-    def __init__(self):
-        pass
 
+class Token:
     def __str__(self) -> str:
         raise NotImplementedError
-    
+
     def color_str(self) -> str:
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.DEFAULT)
     
     def debug_str(self) -> str:
@@ -45,17 +47,29 @@ class Serializable(Token):
     
     def color_str(self) -> str:
         return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.DEFAULT))
-    
+
 class RawToken(Token):
     def __init__(self, s: str):
         self.s = s
-
+    
     def __str__(self):
         return self.s
-    
+
     def color_str(self) -> str:
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.RAW, on_color='on_black')
     
+class JoinToken(Token):
+    def __init__(self, *tokens: Token | str):
+        self.tokens = [token if isinstance(token, Token) else RawToken(token) for token in tokens]
+
+    def __str__(self):
+        return ''.join(str(t) for t in self.tokens)
+    
+    def color_str(self) -> str:
+        return ''.join(t.color_str() for t in self.tokens)
+
+
 class StrToken(Token):
     def __init__(self, s: str):
         self.s = s
@@ -64,19 +78,23 @@ class StrToken(Token):
         return self.s
     
     def color_str(self) -> str:
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.STR)
 
 class CommandNameToken(RawToken):
     def color_str(self) -> str:
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.COMMAND, attrs=["bold"])
 
 class CommandKeywordToken(RawToken):
     def color_str(self) -> str:
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.SUBCOMMAND)
-    
+
 def serialize_function_name(namespace, path, color=False):
     s = f'{namespace}:{'/'.join(path)}'
     if color:
+        # noinspection PyTypeChecker
         return colored(s, _Colors.FUNCTION, attrs=["underline"])
     
     return s
@@ -90,6 +108,7 @@ class FunctionToken(Token):
         return f'function {serialize_function_name(self.namespace, self.path)}'
     
     def color_str(self):
+        # noinspection PyTypeChecker
         return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
 
 class TokenError(Exception):
@@ -108,7 +127,6 @@ class ParseErrorToken(Token):
 
 class SerializeErrorToken(Token):
     def __init__(self, err):
-        raise err
         print_err(f'serialize error {err}')
         self.err = err
 
@@ -157,8 +175,12 @@ class Choice(Token):
         else:
             return hash(self.ident)
 
-class ChoiceSepToken(Token):
-    pass
+class ArgToken(Token):
+    def __init__(self, ident: int):
+        self.ident = ident
+
+    def __str__(self):
+        return f'$TODO $arg:{self.ident}'  # TODO
 
 class Flag:
     def __init__(self, name=None, resource_loc='_internal:flags'):
@@ -204,7 +226,7 @@ class SelectorToken(Token):
         if self.kwargs == {}:
             return f'@{self.s}'
         else:
-            return f'@{self.s}[{','.join(f"{key}={val}" for key, val in self.kwargs.items())}]'
+            return f'@{self.s}[{",".join(f"{key}={val}" for key, val in self.kwargs.items())}]'
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
@@ -217,10 +239,10 @@ class TokensContainer:
     def tokenize(self):
         return list(self.tokens)
 
-    def serialize(self, debug=False, color=False, forcecolor=None) -> str:
+    def serialize(self, debug=False, color=False, force_color=None) -> str | SerializeErrorToken:
         def token_serialize(t: Token) -> str:
-            if forcecolor:
-                return colored(str(t), forcecolor)
+            if force_color:
+                return colored(str(t), force_color)
             elif debug:
                 return t.debug_str()
             elif color:
@@ -229,7 +251,6 @@ class TokensContainer:
                 return str(t)
 
         try:
-
             assignments = {
                 choice.ident: choice.choices
                     for choice in set(
@@ -275,7 +296,7 @@ class TokensRef:
             tokens.append(CommandSepToken())
         return tokens[:-1]  # remove trailing CommandSepToken()
     
-    def serialize(self, debug=False, **kwargs) -> str:
+    def serialize(self, debug=False, **kwargs) -> str | SerializeErrorToken:
         if debug:
             sep = colored(' |\n', 'grey')
         else:
@@ -289,7 +310,7 @@ class TokensRef:
     
     def __str__(self):
         return self.serialize()
-    
+
     def resolve(self) -> List[TokensContainer]:
         resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd]) ]
         return resolved_cmds
@@ -308,8 +329,8 @@ class Program:
     # def __getitem__(self, idx):
     #     return self.cmds[idx]
     
-    def __setitem__(self, idx, newval: TokensContainer | TokensRef):
-        self.cmds[idx] = newval
+    def __setitem__(self, idx, new_val: TokensContainer | TokensRef):
+        self.cmds[idx] = new_val
 
     def remove(self):
         self.removed = True
