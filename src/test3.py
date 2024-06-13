@@ -7,7 +7,11 @@ with PublicFun('move_chickens'):
     
 with PublicFun('to_the_end'):
     with Entity(Selector()).in_('the_end').at(pos=Pos(0, 200, 0), on=Heightmap.surface) as s:
-        Statement('here')
+        Statement('say "I\'m going to the end!"')
+        s.teleport()
+
+    with Entity(Selector()) as s:
+        s.kill()
 
 with Fun() as explode:
     Statement('summon ~ ~ ~ tnt')

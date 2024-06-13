@@ -75,7 +75,7 @@ class Globals:
             self.programs[self.get_function_path()] = Program()
 
     def gen_name(self) -> str:
-        for i in range(1, 256):
+        for i in range(256):
             candidate_name = 'x' + hex(i)[2:]
             if self.get_function_path(path=[*self.path, candidate_name]) not in self.programs:
                 return candidate_name

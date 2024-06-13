@@ -94,6 +94,11 @@ class Entity:
         self.on_relation = _Relation('vehicle')
         return self
 
+    def __enter__(self):
+        self.execute_as_fun = Fun().__enter__()
+        self.old_selector = self.selector
+        self.selector = SingleSelector()
+        return self
 
     # position and rotation
     def teleport(self, loc: Pos = Pos(), *rotation_args):
@@ -138,12 +143,6 @@ class Entity:
     def kill(self):
         Kill(self.selector)
     
-    def __enter__(self):
-        self.execute_as_fun = Fun().__enter__()
-        self.old_selector = self.selector
-        self.selector = SingleSelector()
-        return self
-        
     def __exit__(self, *args):
         self.execute_as_fun.__exit__()
         self.selector = self.old_selector
@@ -166,4 +165,4 @@ class Entity:
             subs.append(ExecuteSub.positioned(self.at_heightmap))
         
         
-        Statement(RawExecute.as_cmds(subs, Block(self.execute_as_fun())))
+        Statement(RawExecute.as_cmds(subs, Block(FunStatement(self.execute_as_fun, attach_local_refs=False))))
