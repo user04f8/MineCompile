@@ -1,8 +1,10 @@
-from typing import Self
+from enum import StrEnum
+from typing import Literal, Self
 from termcolor import colored
 
 from .debug_utils import print_debug
-from .serialize import Token, RawToken, SelectorToken, Serializable
+from .serialize import ResourceLocToken, Token, RawToken, SelectorToken, Serializable
+from .minecraft_builtins.dimensions import _DimensionLiteral
 
 class Int32(Token):
     MIN = -2**31
@@ -14,17 +16,9 @@ class Int32(Token):
     def __str__(self):
         return str(self.x)
 
-
-class ResourceLocation(Serializable):
-    def __init__(self, s = 's', **kwargs):
-        self.token: RawToken = RawToken(s, **kwargs)
-
 class Selector(Serializable):
     def __init__(self, s = 's', **kwargs):
         self.token: SelectorToken = SelectorToken(s, **kwargs)
-
-    def as_(self):
-        return [self.token] # TODO
 
 class SingleSelector(Selector):
     def __init__(self, s: str | Selector = 's', **kwargs) -> None:
@@ -37,9 +31,9 @@ class SingleSelector(Selector):
                 raise ValueError(f"Non-singular selector token with limit={self.token.kwargs['limit']}")
             self.token.kwargs['limit'] = 1
 
-class EntitySelector(Selector):
-    def __init__(self, **kwargs):
-        return Selector('e', **kwargs)
+# class EntitySelector(Selector):
+#     def __init__(self, **kwargs):
+#         return Selector('e', **kwargs)
     
 # class VarToken(Token): # TODO
 #     def __init__(self, entity_ref: Selector, name: str):
@@ -74,6 +68,12 @@ class _Relative:
         # self is not _Relative; return float
         # x + ~y = (x + y)
         return val + (0 if self.val is None else self.val)
+    
+    def __neg__(self):
+        self.val = -self.val
+
+    def __sub__(self, val):
+        return self + -val
     
     @staticmethod
     def join(val0, val1):
@@ -129,14 +129,19 @@ class Pos(Serializable):
         else:
             return ' '.join(f'{self._type}{coord if coord else ''}' for coord in self.vec3)
         
-    
-
 class Loc(Pos):
     def __init__(self, x=0, y=0, z=0):
         """
         Alias for Pos.relative(x, y, z)
         """
         super().__init__(x, y, z, _type='~')
+
+class Heightmap(StrEnum):
+    surface = 'WORLD_SURFACE'
+    ocean_floor = 'OCEAN_FLOOR'
+    motion_blocking = 'MOTION_BLOCKING'
+    motion_blocking_no_leaves = 'MOTION_BLOCKING_NO_LEAVES'
+
 
 class Rot(Serializable):
     """
@@ -166,3 +171,42 @@ class Rot(Serializable):
             return f'~{self.yaw if self.yaw else ''} ~{self.pitch if self.pitch else ''}'
         else:
             return f'{self.yaw} {self.pitch}'
+
+class ResourceLocation(Serializable):
+    def __init__(self, namespace, path):
+        self.token: ResourceLocToken = ResourceLocToken(namespace, path)
+
+class Dimension(ResourceLocation):
+    def __init__(self, dimension_name: _DimensionLiteral):
+        """
+        Type for a builtin minecraft dimension
+        """
+        self.dimension_name = dimension_name
+
+        super().__init__('minecraft', [dimension_name])
+
+    def external_ref(self, namespace, dimension_path) -> Self:
+        """
+        Reference a dimension from any namespace
+        """
+        if isinstance(dimension_path, str):
+            dimension_path = dimension_path.split('/')
+        super().__init__(namespace, dimension_path)
+        return self
+
+class _Relation(Serializable):
+    def __init__(self,
+                 relation: 
+                    Literal['attacker'] | 
+                    Literal['controller'] |
+                    Literal['leasher'] |
+                    Literal['origin'] |
+                    Literal['owner'] |
+                    Literal['passengers'] |
+                    Literal['target'] |
+                    Literal['vehicle']
+                 ):
+        self.relation = relation
+
+    def __str__(self):
+        return self.relation

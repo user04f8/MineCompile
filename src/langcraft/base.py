@@ -235,10 +235,12 @@ class Block(Statement):
             statement.clear()
 
 class FunStatement(Statement):
-    def __init__(self, fun: 'Fun'):
+    def __init__(self, fun: 'Fun', attach_local_refs=False):
         self.fun = fun
         self.cmds = [TokensContainer(FunctionToken(self.fun.namespace, self.fun.path))]
         self.idx = None
+        if attach_local_refs:
+            self.fun._attach_fun_ref(path=GLOBALS.get_function_path())
     
     def __call__(self, *args):
         for fun_arg, arg in zip(self.fun.args, args):

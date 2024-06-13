@@ -74,11 +74,6 @@ class JSON:
                     subtype = self.template[name]
                     self.obj[name] += [v for v in vals if v not in self.obj[name]]
 
-fun_base = JSON(
-    a=1,
-    b=2,
-)
-
 class FunctionJSON(JSON):
     def __init__(self, functions: List[str] = []):
         super().__init__(# $optional: replace=False,

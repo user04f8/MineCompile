@@ -2,6 +2,8 @@ from copy import copy, deepcopy
 from enum import Enum, auto
 from typing import List, Optional, Self, Literal, Iterable
 
+from langcraft.minecraft_builtins.misc import _Heightmap
+
 from .base import Statement, Fun, Block, FunStatement
 from .serialize import *
 from .types import *
@@ -204,8 +206,13 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def positioned(cls):
-        raise NotImplementedError
+    def positioned(cls, pos: Pos | Selector | _Heightmap):
+        if isinstance(pos, Pos):
+            return cls('positioned', pos)
+        elif isinstance(pos, Selector):
+            return cls('positioned', CommandKeywordToken('as'), pos)
+        elif isinstance(pos, _Heightmap):
+            return cls('positioned', CommandKeywordToken('over'), MiscToken(pos))
 
     @classmethod
     def rotated(cls):
@@ -235,7 +242,11 @@ class ExecuteSub:
 
 # special commands:
 
-class RawExecute:
+class RawExecute(Statement):
+    def __init__(self, subs: List[ExecuteSub | Condition], run_block: Block = Block(), add=True):
+        cmds = self.as_cmds(subs, run_block)
+        super().__init__(cmds, add=add)
+
     @staticmethod
     def as_cmds(subs: List[ExecuteSub | Condition], run_block: Block = Block()):
         flags = [sub.pre_tokenize() for sub in subs]
@@ -308,6 +319,13 @@ class Teleport(Statement):
             if self.target != cmd.target or not self.simple or not cmd.simple:
                 return
             return Teleport(self.target, self.loc.join(cmd.loc), add=False)
+
+class Kill(Statement):
+    def __init__(self, selector: Optional[Selector] = None, add=True):
+        cmds = [CommandNameToken('kill')]
+        if selector is not None:
+            cmds.append(selector)
+        super().__init__(cmds, add=add)
 
 # other commands:
 

@@ -11,25 +11,33 @@ _Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "
 class _Colors:
     # termcolor colors for each token type
     DEFAULT = 'white'
+    SERIALIZABLE_DEFAULT = 'red'
     RAW = 'light_green' # hardcoded to be on_color='on_black'
     COMMAND = 'light_magenta' # hardcoded to be bold
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan' # hardcoded to be underlined
     STR = 'green'
+    MISC = 'light_grey'
+    FLAG = 'dark_grey'
 
     SERIALIZABLE: Dict[str, _Color] = {
-        'Selector': 'cyan',
-        'ResourceLocation': 'blue'
+        'ResourceLocation': 'blue',
+        'Selector': 'green',
+        'SingleSelector': 'light_green',
+        'Pos': 'yellow',
+        'Rot': 'yellow'
     }
 
 
 class Token:
+    COLOR = _Colors.DEFAULT
+
     def __str__(self) -> str:
         raise NotImplementedError
 
     def color_str(self) -> str:
         # noinspection PyTypeChecker
-        return colored(self.__str__(), _Colors.DEFAULT)
+        return colored(self.__str__(), self.COLOR)
     
     def debug_str(self) -> str:
         return self.color_str()
@@ -45,7 +53,8 @@ class Serializable(Token):
         return self.token.__str__()
     
     def color_str(self) -> str:
-        return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.DEFAULT))
+        # return self.color_str()
+        return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.SERIALIZABLE_DEFAULT))
 
 class RawToken(Token):
     def __init__(self, s: str):
@@ -68,27 +77,22 @@ class JoinToken(Token):
     def color_str(self) -> str:
         return ''.join(t.color_str() for t in self.tokens)
 
-
 class StrToken(Token):
+    COLOR = _Colors.STR
     def __init__(self, s: str):
         self.s = s
 
     def __str__(self):
         return self.s
-    
-    def color_str(self) -> str:
-        # noinspection PyTypeChecker
-        return colored(self.__str__(), _Colors.STR)
+
+class MiscToken(StrToken):
+    COLOR = _Colors.MISC
 
 class CommandNameToken(RawToken):
-    def color_str(self) -> str:
-        # noinspection PyTypeChecker
-        return colored(self.__str__(), _Colors.COMMAND, attrs=["bold"])
+    COLOR = _Colors.COMMAND
 
 class CommandKeywordToken(RawToken):
-    def color_str(self) -> str:
-        # noinspection PyTypeChecker
-        return colored(self.__str__(), _Colors.SUBCOMMAND)
+    COLOR = _Colors.SUBCOMMAND
 
 def serialize_function_name(namespace, path, color=False):
     s = f'{namespace}:{'/'.join(path)}'
@@ -122,7 +126,7 @@ class ParseErrorToken(Token):
         raise TokenError(self.err)
     
     def debug_str(self):
-        return colored(f'$ParseError:{self.err}$', 'red', attrs=['bold'])
+        return colored(f'$ParseError:{self.err}$', _Colors.ERR, attrs=['bold'])
 
 class SerializeErrorToken(Token):
     def __init__(self, err):
@@ -133,7 +137,7 @@ class SerializeErrorToken(Token):
         raise TokenError(self.err)
     
     def debug_str(self):
-        return colored(f'$SerializeError:{self.err}$', 'red', attrs=['bold'])
+        return colored(f'$SerializeError:{self.err}$', _Colors.ERR, attrs=['bold'])
 
 TOKEN_SEP = ' '
 REMOVE_TOKEN_SEP = '$remove_token_sep'
@@ -192,6 +196,8 @@ class Flag:
         return f'storage {self.resource_loc} {self.name}'
 
 class ResetFlagToken(Token):
+    COLOR = _Colors.FLAG
+
     def __init__(self, flag: Flag):
         self.flag = flag
 
@@ -199,6 +205,8 @@ class ResetFlagToken(Token):
         return f'data remove {self.flag.serialize()}'
 
 class SetFlagToken(Token):
+    COLOR = _Colors.FLAG
+
     def __init__(self, flag: Flag):
         self.flag = flag
 
@@ -206,14 +214,14 @@ class SetFlagToken(Token):
         return f'data modify {self.flag.serialize()} set value 1'
     
 class CheckFlagToken(Token):
+    COLOR = _Colors.FLAG
+
     def __init__(self, flag: Flag):
         self.flag = flag
 
     def __str__(self):
         return f'data {self.flag.serialize()}'
     
-
-
 class SelectorToken(Token):
     def __init__(self, s: str = 's', **kwargs):
         # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
@@ -226,6 +234,15 @@ class SelectorToken(Token):
             return f'@{self.s}'
         else:
             return f'@{self.s}[{",".join(f"{key}={val}" for key, val in self.kwargs.items())}]'
+
+class ResourceLocToken(Token):
+    def __init__(self, namespace: str = 'minecraft', path: List[str] = []):
+        # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
+        self.namespace = namespace
+        self.path = path
+
+    def __str__(self):
+        return self.namespace + ':' + '/'.join(p for p in self.path)
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
@@ -342,16 +359,19 @@ class Program:
         while i < len(self.cmds) - 1:
             cmd0, cmd1 = self.cmds[i], self.cmds[i+1]
             try:
-                cmd01 = cmd0.join_with_cmd(cmd1)
+                if hasattr(cmd0, 'join_with_cmd'):
+                    cmd01 = cmd0.join_with_cmd(cmd1)
+                elif hasattr(cmd1, 'right_join_with_cmd'):
+                    cmd01 = cmd1.right_join_with_cmd(cmd0)
+                else:
+                    cmd01 = None
                 if cmd01:
                     print_debug(f'joined cmds: {cmd0} || {cmd1} --> {cmd01}')
                     self.cmds[i] = cmd01
                     del self.cmds[i+1]
                     i -= 1
-            except AttributeError as e:
-                print_warn(f'undefined optim: {e}')
             except TypeError as e:
-                 print_warn(f'invalid types for optim: {e}')
+                print_warn(f'invalid types for optim: {e}')
             i += 1
 
     def serialize(self, debug=False, **kwargs):
@@ -359,4 +379,8 @@ class Program:
             sep = colored(' ||\n', 'grey')
         else:
             sep = COMMAND_SEP
-        return ('# UNUSED\n' if self.removed else '') + sep.join(s for s in (cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None) if s is not '')
+        return ('# UNUSED\n' if self.removed else '') + sep.join(
+                    s for s in (
+                        cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None
+                    ) if s != ''
+                )
