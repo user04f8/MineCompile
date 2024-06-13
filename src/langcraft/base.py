@@ -1,6 +1,6 @@
 from copy import copy
 from enum import Enum
-from typing import Any, Callable, List, Optional, Dict, Set
+from typing import Any, Callable, List, Optional, Dict, Set, Tuple
 from pathlib import Path
 
 from .globals import GLOBALS, DATAPACK_ROOT
@@ -269,8 +269,13 @@ class Fun:
             self.name = GLOBALS.gen_name()
         else:
             self.name = name
+        
         self.namespace = GLOBALS.namespace
-        self.path = GLOBALS.path + [self.name]
+        if self.name == '$self':
+            # reference self
+            self.path = GLOBALS.path
+        else:
+            self.path = GLOBALS.path + [self.name]
         
         self.inline = True
         self.inline_block = None        
@@ -283,9 +288,16 @@ class Fun:
         self.refs = set()
     
     @classmethod
-    def statement(cls, name: Optional[str], namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
-        return FunStatement(cls(name=name, namespace=namespace, path=path))
-    
+    def statement(cls, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
+        if namespace or path:
+            with Namespace(namespace, path):
+                return FunStatement(cls(name=name))
+        elif name:
+            return FunStatement(cls(name=name))
+        else:
+            # default to current function
+            return FunStatement(cls(name='$self'))
+
     @classmethod
     def callable(cls, *in_types):
         return lambda name: Fun(name)[*in_types]
@@ -414,6 +426,8 @@ class OnLoadFun(Fun):
 
 
 def compile_program(program: Program, **serialize_kwargs):
+    print_debug(f'compiling {program}')
+
     s = program.serialize(**serialize_kwargs)
     # post-processing
     s = s.replace(REMOVE_TOKEN_SEP + TOKEN_SEP, '')
@@ -477,7 +491,12 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
             with open(file_path, 'w') as f:
                 f.write(out_files[file_path])
     
-    # function
+    # function:optimize
+    for program in programs.values():
+        program.optimize()
+
+
+    # function:serialize
     for file_path, program in programs.items():
         if any(file_cmd is not None for file_cmd in program):
             out_files[file_path] = compile_program(program, color=color, debug=debug)

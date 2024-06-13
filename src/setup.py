@@ -4,7 +4,6 @@ setup(
     name='langcraft',
     version='0.1',
     packages=['langcraft'],
-    package_dir={'': 'src'},
     url='',
     license='',
     author='Nathan Clark',

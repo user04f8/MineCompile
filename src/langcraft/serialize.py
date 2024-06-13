@@ -1,7 +1,6 @@
-from typing import Tuple, List, Self
+from typing import Literal, Self, List, Dict
 from uuid import uuid4
 from itertools import product
-from enum import StrEnum
 
 from termcolor import colored
 from .debug_utils import *
@@ -337,6 +336,23 @@ class Program:
     
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
+
+    def optimize(self):
+        i = 0
+        while i < len(self.cmds) - 1:
+            cmd0, cmd1 = self.cmds[i], self.cmds[i+1]
+            try:
+                cmd01 = cmd0.join_with_cmd(cmd1)
+                if cmd01:
+                    print_debug(f'joined cmds: {cmd0} || {cmd1} --> {cmd01}')
+                    self.cmds[i] = cmd01
+                    del self.cmds[i+1]
+                    i -= 1
+            except AttributeError as e:
+                print_warn(f'undefined optim: {e}')
+            except TypeError as e:
+                 print_warn(f'invalid types for optim: {e}')
+            i += 1
 
     def serialize(self, debug=False, **kwargs):
         if debug:

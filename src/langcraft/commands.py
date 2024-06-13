@@ -1,31 +1,32 @@
 from copy import copy, deepcopy
-from enum import Enum
+from enum import Enum, auto
 from typing import List, Optional, Self, Literal, Iterable
 
 from .base import Statement, Fun, Block, FunStatement
 from .serialize import *
 from .types import *
 from .debug_utils import *
+from .types import _Relative
 
 class ConditionType(Enum):
-    STR = -1
+    STR = auto()
     
-    FALSE = 0
-    TRUE = 1
+    FALSE = auto()
+    TRUE = auto()
     
-    ALL = 10
-    OR = 11
-    ANY = 12
+    ALL = auto()
+    OR = auto()
+    ANY = auto()
 
-    BIOME = 20
-    BLOCK = 21
-    BLOCKS = 22
-    BLOCK_DATA = 23
-    ENTITY_DATA = 24
-    STORAGE_DATA = 25
-    DIMENSION = 26
-    FUNCTION = 27
-    ENTITY = 28
+    BIOME = auto()
+    BLOCK = auto()
+    BLOCKS = auto()
+    BLOCK_DATA = auto()
+    ENTITY_DATA = auto()
+    STORAGE_DATA = auto()
+    DIMENSION = auto()
+    FUNCTION = auto()
+    ENTITY = auto()
 
 
 class Condition:
@@ -163,33 +164,13 @@ class Condition:
             case _:
                 return None
 
-class RawCommand(Statement):
-    NAME: str
-
-    def __init__(self, *args, add=True):
-        cmds = [self.as_cmd(*args)]
-        # if isinstance(tokens, str):
-        #     tokens = [StrToken(token) for token in tokens.split()]
-        super().__init__(cmds, add=add)
-
-    @classmethod
-    def as_cmd(cls, *args, **kwargs) -> TokensContainer:
-        # cmds = cls(*args, add=False).get_cmds()
-        # assert len(cmds) == 0
-        # return cmds[0]
-        return TokensContainer(CommandNameToken(cls.NAME), *cls._gen_tokens(*args, **kwargs))
-    
-    @staticmethod
-    def _gen_tokens(*args) -> Iterable[Token]:
-        return args
-
 class ExecuteSub:
     def __init__(self, subcmd: str, *args: Token):
         self.subcmd = CommandKeywordToken(subcmd)
-        self.args = args
+        self.tokens = args
 
     def tokenize(self) -> List[Token]:
-        return [self.subcmd, *self.args]
+        return [self.subcmd, *self.tokens]
     
     def pre_tokenize(self):
         return None
@@ -203,12 +184,12 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def as_(cls):
-        raise NotImplementedError
+    def as_(cls, selector: Selector):
+        return cls('as', selector)
 
     @classmethod
-    def at(cls):
-        raise NotImplementedError
+    def at(cls, selector: Selector):
+        return cls('at', selector)
 
     @classmethod
     def facing(cls):
@@ -252,6 +233,8 @@ class ExecuteSub:
         """
         return ~Condition(condition_value, condition_type)
 
+# special commands:
+
 class RawExecute:
     @staticmethod
     def as_cmds(subs: List[ExecuteSub | Condition], run_block: Block = Block()):
@@ -270,6 +253,79 @@ class RawExecute:
             *([token for sub in subs for token in sub.tokenize()] + block_tokens)
         ))
         return cmds
+
+# common commands:
+
+class Teleport(Statement):
+    """
+        command syntax:
+        
+        teleport <destination>
+        teleport <targets> <destination> 
+        teleport <location>
+        teleport <targets> <location>
+        teleport <targets> <location> <rotation>
+        teleport <targets> <location> facing <facingLocation>
+        teleport <targets> <location> facing entity <facingEntity> [<facingAnchor>]
+    """
+    def __init__(self, /, *args, add=True):
+        # args = [arg for arg in args if arg is not None] # trim kwarg=None to defaults
+        self.simple = False
+        if len(args) == 1 and isinstance(args[0], SingleSelector):
+            tokens = args
+        else:
+            if args and isinstance(args[0], Selector):
+                self.target, *args = args
+            else:
+                self.target = Selector()
+            if args and isinstance(args[0], Pos):
+                self.loc, *args = args
+            else:
+                self.loc = Pos()
+            tokens = [self.target, self.loc]
+            if args and isinstance(args[0], Rot):
+                rot, *args = args
+                tokens.append(rot)
+            elif args and isinstance(args[0], Pos):
+                facing, *args = args
+                tokens += [CommandKeywordToken('facing'), facing]
+            elif args and isinstance(args[0], Pos):
+                facing_entity, *args = args
+                if args and (args[0] == 'eyes' or args[0] == 'feet'):
+                    tokens += [CommandKeywordToken('facing entity'), facing_entity, CommandKeywordToken(args.pop())]
+                else:
+                    tokens += [CommandKeywordToken('facing entity'), facing_entity]
+            else:
+                self.simple = True
+            if len(args) > 0:
+                raise TypeError(f'invalid args for Teleport: {args}')
+        # print(tokens)
+        cmds = [CommandNameToken('tp'), *tokens]
+        super().__init__(cmds, add=add)
+    
+    def join_with_cmd(self, cmd):
+        if isinstance(cmd, Teleport):
+            if self.target != cmd.target or not self.simple or not cmd.simple:
+                return
+            return Teleport(self.target, self.loc.join(cmd.loc), add=False)
+
+# other commands:
+
+class RawCommand(Statement):
+    NAME: str
+
+    def __init__(self, *args, add=True, **kwargs):
+        cmds = [self._as_cmds(*args, **kwargs)]
+        # if isinstance(tokens, str):
+        #     tokens = [StrToken(token) for token in tokens.split()]
+        super().__init__(cmds, add=add)
+
+    def _as_cmds(self, *tokens: Token) -> TokensContainer:
+        # cmds = cls(*args, add=False).get_cmds()
+        # assert len(cmds) == 0
+        # return cmds[0]
+        return TokensContainer(CommandNameToken(self.NAME), *tokens)
+
 
 class Advancement(RawCommand):
     NAME = 'advancement'
@@ -297,3 +353,6 @@ class Advancement(RawCommand):
     @classmethod
     def revoke(cls, target: Selector, advancement: Literal['*'] | ResourceLocation, criterion=None, parents=False, children=False):
         return cls(CommandKeywordToken('revoke'), target, *cls._tokenize_sub(advancement, criterion, parents, children))
+
+...  # TODO
+
