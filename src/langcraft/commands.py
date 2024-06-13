@@ -2,8 +2,6 @@ from copy import copy, deepcopy
 from enum import Enum, auto
 from typing import List, Optional, Self, Literal, Iterable
 
-from langcraft.minecraft_builtins.misc import _Heightmap
-
 from .base import Statement, Fun, Block, FunStatement
 from .serialize import *
 from .types import *
@@ -198,20 +196,20 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def in_(cls):
-        raise NotImplementedError
+    def in_(cls, dim: Dimension):
+        return cls('in', dim)
 
     @classmethod
     def on(cls):
         raise NotImplementedError
 
     @classmethod
-    def positioned(cls, pos: Pos | Selector | _Heightmap):
+    def positioned(cls, pos: Pos | Selector | Heightmap):
         if isinstance(pos, Pos):
             return cls('positioned', pos)
         elif isinstance(pos, Selector):
             return cls('positioned', CommandKeywordToken('as'), pos)
-        elif isinstance(pos, _Heightmap):
+        else: # isinstance(pos, Heightmap)
             return cls('positioned', CommandKeywordToken('over'), MiscToken(pos))
 
     @classmethod

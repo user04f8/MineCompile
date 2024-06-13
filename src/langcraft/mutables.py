@@ -3,6 +3,7 @@ from typing import Literal, Optional
 from .base import Fun, FunStatement, Statement, Block
 from .types import _Relation, Dimension, Selector, Pos, Rot, _Relative, SingleSelector, Heightmap
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
+from .minecraft_builtins.dimensions import _DimensionLiteral
 
 class _EntityRelative(_Relative):
     def __init__(self, entity):
@@ -21,9 +22,11 @@ class Entity:
     def as_parent(self):
         self.as_selector = None
         self.at = self.selector()
+        return self
 
     def at_parent(self):
         self.at_target = None
+        return self
 
     def at(self,
            at_target: Selector = Selector(),
@@ -34,9 +37,14 @@ class Entity:
         self.positioned = pos
         self.rotated = rot
         self.at_heightmap = on
+        return self
 
-    def in_(self, dim: Dimension):
-        self.dimension = dim
+    def in_(self, dim: Dimension | _DimensionLiteral):
+        if isinstance(dim, Dimension):
+            self.dimension = dim
+        else:
+            self.dimension = Dimension(dim)
+        return self
 
     def __call__(self, funct: Fun, mode: Literal['as'] | Literal['at'] | Literal['both'] = 'both'):
         """

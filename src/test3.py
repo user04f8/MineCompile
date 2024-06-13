@@ -5,6 +5,10 @@ with PublicFun('move_chickens'):
     e.yaw += 15
     e.teleport(Pos.angular(forward=1))
     
+with PublicFun('to_the_end'):
+    with Entity(Selector()).in_('the_end').at(pos=Pos(0, 200, 0), on=Heightmap.surface) as s:
+        Statement('here')
+
 with Fun() as explode:
     Statement('summon ~ ~ ~ tnt')
 

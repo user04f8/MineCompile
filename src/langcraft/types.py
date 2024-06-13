@@ -137,10 +137,10 @@ class Loc(Pos):
         super().__init__(x, y, z, _type='~')
 
 class Heightmap(StrEnum):
-    surface = 'WORLD_SURFACE'
-    ocean_floor = 'OCEAN_FLOOR'
-    motion_blocking = 'MOTION_BLOCKING'
-    motion_blocking_no_leaves = 'MOTION_BLOCKING_NO_LEAVES'
+    surface = 'world_surface'
+    ocean_floor = 'ocean_floor'
+    motion_blocking = 'motion_blocking'
+    motion_blocking_no_leaves = 'motion_blocking_no_leaves'
 
 
 class Rot(Serializable):
