@@ -165,4 +165,4 @@ class Entity:
             subs.append(ExecuteSub.positioned(self.at_heightmap))
         
         
-        Statement(RawExecute.as_cmds(subs, Block(FunStatement(self.execute_as_fun, attach_local_refs=False))))
+        Statement(RawExecute.as_cmds(subs, Block(FunStatement(self.execute_as_fun, attach_local_refs=True))))
