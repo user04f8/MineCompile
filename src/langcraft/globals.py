@@ -19,7 +19,7 @@ class Globals:
         self.fun = None  # : Optional[Fun]  # UNUSED, can delete
         self.blocks = []
 
-        self.ref_graph = {}
+        self.ref_graph = {}  # GLOBALS.ref_graph[callee_ref] = {caller_ref for caller_ref in caller_refs}
         self.fun_hooks = {}
         self.resource_hooks = {} # TODO
     

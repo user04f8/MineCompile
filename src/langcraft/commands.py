@@ -1,6 +1,6 @@
 from copy import copy, deepcopy
 from enum import Enum, auto
-from typing import List, Optional, Self, Literal, Iterable
+from typing import List, Optional, Self, Literal
 
 from .base import Statement, Fun, Block, FunStatement
 from .serialize import *
@@ -240,6 +240,22 @@ class ExecuteSub:
 
 # special commands:
 
+class _ExecuteContainer(TokensContainer):
+    def __init__(self, tokens: List[Token], block_tokens):
+        super().__init__(*tokens)
+        self._block_tokens = block_tokens
+
+    @property
+    def tokens(self):
+        return self._tokens + self._block_tokens
+
+    def get_fun_token(self) -> FunctionToken | None:
+        if len(self._block_tokens) == 2:
+            run_token, fun_token = self._block_tokens
+            if isinstance(fun_token, FunctionToken):
+                return fun_token
+                
+
 class RawExecute(Statement):
     def __init__(self, subs: List[ExecuteSub | Condition], run_block: Block = Block(), add=True):
         cmds = self.as_cmds(subs, run_block)
@@ -253,14 +269,22 @@ class RawExecute(Statement):
         execute_block = Block(*(set_flags + run_block.statements))
         if len(execute_block) == 0:
             block_tokens = []
-        elif len(execute_block) == 1:
+        single_line_tokens = execute_block.single_line_tokenize()
+        if single_line_tokens:
             block_tokens = [CommandKeywordToken('run')] + execute_block.single_line_tokenize()
         else:
+            # block_tokens = [
+            #     CommandKeywordToken('run'),
+            #     FunStatement(Fun()(execute_block.tokenize()), attach_local_refs=True)
+            # ]
             block_tokens = [CommandKeywordToken('run'), Fun._wrap_tokens(execute_block.tokenize())]
-        cmds.append(TokensContainer(
-            CommandNameToken('execute'),
-            *([token for sub in subs for token in sub.tokenize()] + block_tokens)
-        ))
+        cmds.append(
+            _ExecuteContainer(
+                [CommandNameToken('execute')] +
+                [token for sub in subs for token in sub.tokenize()],
+                block_tokens
+            )
+        )
         return cmds
 
 # common commands:
@@ -314,9 +338,8 @@ class Teleport(Statement):
     
     def join_with_cmd(self, cmd):
         if isinstance(cmd, Teleport):
-            if self.target != cmd.target or not self.simple or not cmd.simple:
-                return
-            return Teleport(self.target, self.loc.join(cmd.loc), add=False)
+            if self.target == cmd.target and self.simple and cmd.simple:
+                return Teleport(self.target, self.loc.join(cmd.loc), add=False)
 
 class Kill(Statement):
     def __init__(self, selector: Optional[Selector] = None, add=True):

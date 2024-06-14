@@ -20,6 +20,9 @@ class Selector(Serializable):
     def __init__(self, s = 's', **kwargs):
         self.token: SelectorToken = SelectorToken(s, **kwargs)
 
+    def __eq__(self, sel: Self):
+        return (self.token.s == sel.token.s and self.token.kwargs == sel.token.kwargs)
+
 class SingleSelector(Selector):
     def __init__(self, s: str | Selector = 's', **kwargs) -> None:
         if isinstance(s, Selector):
@@ -93,9 +96,9 @@ class Pos(Serializable):
     """
     def __init__(self, x=_Relative(), y=_Relative(), z=_Relative(), _type=None):
         """
-        Defines positions, e.g. ~ ~1 ~
+        Defines positions, e.g. 0 128 0
         """
-        self._type = _type
+        self._type: Literal['^'] | None = _type
         self.vec3 = x, y, z
     
     @classmethod
@@ -103,7 +106,7 @@ class Pos(Serializable):
         """
         Defines relative positions, e.g. ~ ~1 ~
         """
-        return cls(x, y, z, _type='~')
+        return cls(_Relative(x), _Relative(y), _Relative(z))
 
     @classmethod
     def angular(cls, left=0, up=0, forward=0):

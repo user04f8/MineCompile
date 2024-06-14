@@ -6,7 +6,7 @@ with PublicFun('move_chickens'):
     e.teleport(Pos.angular(forward=1))
     
 with PublicFun('to_the_end'):
-    with Entity(Selector()).in_('the_end').at(pos=Pos(0, 200, 0), on=Heightmap.surface) as s:
+    with Entity(Selector()).in_('the_end').at(Pos(0, 200, 0), on=Heightmap.surface) as s:
         Statement('say "I\'m going to the end!"')
         s.teleport()
 

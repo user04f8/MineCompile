@@ -3,11 +3,12 @@ from typing import Dict
 from pathlib import Path
 from termcolor import colored
 
-from .base import Program, compile_all
+from .base import Program
+from .compile import compile_all
 from .globals import GLOBALS
 
-def display_all(programs: Dict[Path, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', debug=True, color=True):
-    compiled = compile_all(programs, root_dir, debug=debug, color=color)
+def display_all(programs: Dict[Path, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', debug=True, color=True, max_optim_steps=20):
+    compiled = compile_all(programs, root_dir, debug=debug, color=color, max_optim_steps=max_optim_steps)
     for file_path, serialized_file in compiled.items():
         
         root, namespace, *path = file_path.split('/')

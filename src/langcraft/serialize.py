@@ -88,10 +88,14 @@ class StrToken(Token):
 class MiscToken(StrToken):
     COLOR = _Colors.MISC
 
-class CommandNameToken(RawToken):
+class CommandNameToken(StrToken):
     COLOR = _Colors.COMMAND
 
-class CommandKeywordToken(RawToken):
+    def color_str(self) -> str:
+        # noinspection PyTypeChecker
+        return colored(self.__str__(), self.COLOR, attrs=['bold'])
+
+class CommandKeywordToken(StrToken):
     COLOR = _Colors.SUBCOMMAND
 
 def serialize_function_name(namespace, path, color=False):
@@ -120,10 +124,11 @@ class TokenError(Exception):
 class ParseErrorToken(Token):
     def __init__(self, err: str):
         print_err(f'parse error {err}')
+        raise err
         self.err = err
 
     def __str__(self):
-        raise TokenError(self.err)
+        return str(self.err)
     
     def debug_str(self):
         return colored(f'$ParseError:{self.err}$', _Colors.ERR, attrs=['bold'])
@@ -131,10 +136,11 @@ class ParseErrorToken(Token):
 class SerializeErrorToken(Token):
     def __init__(self, err):
         print_err(f'serialize error {err}')
+        raise err
         self.err = err
 
     def __str__(self):
-        raise TokenError(self.err)
+        return str(self.err)
     
     def debug_str(self):
         return colored(f'$SerializeError:{self.err}$', _Colors.ERR, attrs=['bold'])
@@ -247,7 +253,11 @@ class ResourceLocToken(Token):
 class TokensContainer:
     def __init__(self, *tokens: Token):
         assert all(isinstance(token, Token) for token in tokens), f"{[type(token) for token in tokens]}"
-        self.tokens = tokens
+        self._tokens = list(tokens)
+
+    @property
+    def tokens(self):
+        return self._tokens
 
     def __iter__(self):
         return self.tokens.__iter__()
@@ -300,9 +310,10 @@ class TokensRef:
     def get_cmds(self) -> List[TokensContainer | Self]:
         return []
     
-    def single_line_tokenize(self) -> List[Token]:
+    def single_line_tokenize(self) -> List[Token] | None:
         cmds = self.resolve()
-        assert len(cmds) == 1
+        if len(cmds) > 1:
+            return None
         return cmds[0].tokenize()
 
     def tokenize(self) -> List[Token]:
@@ -328,13 +339,13 @@ class TokensRef:
         return self.serialize()
 
     def resolve(self) -> List[TokensContainer]:
-        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd]) ]
+        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd])]
         return resolved_cmds
 
 class Program:
     def __init__(self, *cmds: TokensContainer | TokensRef):
         self.cmds: List[TokensContainer | TokensRef] = list(cmds)
-        self.removed = False
+        self.unused = False
 
     def __len__(self):
         return len(self.cmds)
@@ -342,17 +353,23 @@ class Program:
     def __iter__(self):
         return self.cmds.__iter__()
     
-    # def __getitem__(self, idx):
-    #     return self.cmds[idx]
+    def __getitem__(self, idx):
+        return self.cmds[idx]
     
     def __setitem__(self, idx, new_val: TokensContainer | TokensRef):
         self.cmds[idx] = new_val
 
-    def remove(self):
-        self.removed = True
+    def mark_unused(self):
+        self.unused = True
     
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
+
+    def unwrap_to(self, i: int, cmds: List[TokensContainer | TokensRef]):
+        """
+        Removes self.cmds[i] and inserts cmds at index i
+        """
+        self.cmds = self.cmds[:i] + cmds + self.cmds[i+1:]
 
     def optimize(self):
         i = 0
@@ -379,7 +396,7 @@ class Program:
             sep = colored(' ||\n', 'grey')
         else:
             sep = COMMAND_SEP
-        return ('# UNUSED\n' if self.removed else '') + sep.join(
+        return ('# UNUSED\n' if self.unused else '') + sep.join(
                     s for s in (
                         cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None
                     ) if s != ''

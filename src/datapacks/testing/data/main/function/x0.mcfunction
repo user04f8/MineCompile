@@ -1,0 +1,1 @@
+execute as @e[type=marker,tags=['laser']] at @s run function main:x0/x0/x0

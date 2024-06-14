@@ -287,7 +287,7 @@ class Fun:
 
         self.ref = None
         self.args = []
-        self.refs = set()
+        # self.refs = set()
     
     @classmethod
     def statement(cls, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
@@ -370,9 +370,12 @@ class Fun:
             return fun_statement
     
     @classmethod
-    def _wrap_tokens(cls, tokens: List[Token]) -> Token:
+    def _wrap_tokens(cls, tokens: List[Token]) -> FunctionToken:
+
         namespace = GLOBALS.namespace
         caller_ref = cls._gen_ref()
+        print_debug(f'_wrap_tokens call from {caller_ref}')
+
         with Pathspace(GLOBALS.gen_name()):
             callee_ref, _ = cls._gen_ref(attrs=('no_unwrap',))
             GLOBALS.add_statement(TokensContainer(*tokens))
@@ -399,7 +402,7 @@ class Fun:
     
     def _attach_ref(self, caller_ref: Tuple[Tuple[str, str], Tuple[str, ...]]):
         # print_debug(f'attaching ref to {self.name}: {caller_ref}')
-        self.refs.add(caller_ref)
+        # self.refs.add(caller_ref)
         if self.ref in GLOBALS.ref_graph:
             GLOBALS.ref_graph[self.ref].add(caller_ref)
         else:
@@ -425,92 +428,4 @@ class OnLoadFun(Fun):
         out = super().__enter__()
         self._attach_hook('#minecraft:load')
         return out
-
-
-def compile_program(program: Program, **serialize_kwargs):
-    print_debug(f'compiling {program}')
-
-    s = program.serialize(**serialize_kwargs)
-    # post-processing
-    s = s.replace(REMOVE_TOKEN_SEP + TOKEN_SEP, '')
-    return s
-
-def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dict[str, Any] = None, jsons: Dict[str, JSON] = GLOBALS.jsons, root_dir: str = './datapacks/testing/data', write=False, color=False, debug=False) -> Dict[str, str]:
-    # prune refs
-    for hook, hooked_funs in GLOBALS.fun_hooks.items():
-        hook: str
-        hooked_funs: Fun
-        if hook[0] == '#':
-            # handle tags
-            namespace, tag_path = hook[1:].split(':')
-            with Namespace(name=namespace, full_path=tag_path.split('/')):
-                hooked_fun_names = [serialize_function_name(hooked_fun.namespace, hooked_fun.path) for hooked_fun in hooked_funs]
-                GLOBALS.add_to_function_tag(None, hooked_fun_names)
-
-    def prune_refs(graph: Dict[Tuple[str, str], Set[Tuple[Tuple[str, str], Tuple[str, ...]]]]):
-        def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]]) -> Optional[str]:
-            if source not in graph.keys():
-                return None
-            for u, u_attrs in graph[source]:
-                if u[0] == '$extern':
-                    return u[1]
-                    # external ref reached
-                if u not in discovered:
-                    discovered.add(u)
-                    extern_ref = dfs_to_extern(u, discovered)
-                    if extern_ref:
-                        return extern_ref
-            return None
-        
-        
-        for fun_path, fun_program in programs.items():
-            u = ('function', fun_path)
-            extern_ref = dfs_to_extern(u, set())
-            # print_debug(f'external_ref for {u}: {extern_ref}')
-            if extern_ref is None:
-                match u:
-                    case ('function', path):
-                        if GLOBALS.programs[path].cmds:
-                            fun_serial = GLOBALS.programs[path].serialize()
-                            print_warn(f'Pruning unreferenced function at {path}: {fun_serial[:32].replace('\n', ' || ')}{'...' if len(fun_serial) > 32 else ''}')
-                        programs[path].remove()
-    
-    prune_refs(GLOBALS.ref_graph)
-    
-    if debug:
-        # display refs
-        print_debug(f'ref graph: {GLOBALS.ref_graph}')
-    
-    out_files: Dict[str, str] = {}
-
-    # json
-    for file_path, json_ in jsons.items():
-        out_files[file_path] = json_.serialize(debug=debug, color=color)
-        if write:
-            file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.json\n'
-            file_path = Path(file_path)
-            file_path.mkdir(parents=True, exist_ok=True)
-            with open(file_path, 'w') as f:
-                f.write(out_files[file_path])
-    
-    # function:optimize
-    for program in programs.values():
-        program.optimize()
-
-
-    # function:serialize
-    for file_path, program in programs.items():
-        if any(file_cmd is not None for file_cmd in program):
-            out_files[file_path] = compile_program(program, color=color, debug=debug)
-            if write:
-                file_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction\n'
-                file_path = Path(file_path)
-                file_path.mkdir(parents=True, exist_ok=True)
-                with open(file_path, 'w') as f:
-                    f.write(out_files[file_path])
-
-    # TODO nbt structures
-
-
-    return out_files
 

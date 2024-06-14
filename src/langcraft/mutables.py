@@ -29,10 +29,13 @@ class Entity:
         return self
 
     def at(self,
-           at_target: Selector = Selector(),
+           at_target: Selector | Pos | Rot = Selector(),
            pos: Pos | Selector | None = None,
            rot: Rot | Selector | None = None,
            on: Heightmap | None = None):
+        """
+        If at_target is not Selector(), the parent's position, rotation, and dimension are used except where otherwise specified
+        """
         self.at_target = at_target
         self.positioned = pos
         self.rotated = rot
@@ -152,11 +155,10 @@ class Entity:
             subs.append(ExecuteSub.as_(self.selector))
         elif self.as_selector:
             subs.append(ExecuteSub.as_(self.as_selector))
-        if self.at_target:
-            subs.append(ExecuteSub.at(self.at_target))
-        
         if self.dimension:
             subs.append(ExecuteSub.in_(self.dimension))
+        if self.at_target:
+            subs.append(ExecuteSub.at(self.at_target))
         if self.positioned:
             subs.append(ExecuteSub.positioned(self.positioned))
         if self.rotated:
