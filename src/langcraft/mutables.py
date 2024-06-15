@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from langcraft.serialize import SelectorToken
 
-from .base import Fun, FunStatement, Statement, Block
+from .base import Fun, Statement, Block
 from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, Rot, _Relative, _SingleSelectorBase, Heightmap
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
 from .minecraft_builtins.dimensions import _DimensionLiteral
@@ -76,7 +76,7 @@ class Entities(_SelectorBase):
             case 'both':
                 subs.append(ExecuteSub.as_(self.token))
                 subs.append(ExecuteSub.at(_SelectorBase()))  # as <selector> at @s
-        RawExecute(subs, Block(FunStatement(funct, attach_local_refs=True)))
+        RawExecute.conditional_fun(subs, funct)
 
     @property
     def attacker(self):
@@ -187,8 +187,7 @@ class Entities(_SelectorBase):
         if self.at_heightmap:
             subs.append(ExecuteSub.positioned(self.at_heightmap))
         
-        
-        Statement(RawExecute.as_cmds(subs, [FunStatement(self.execute_as_fun, attach_local_refs=True)]))
+        RawExecute.conditional_fun(subs, self.execute_as_fun)
 
 class Self(Entities):
     def __init__(self,

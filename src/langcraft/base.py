@@ -2,7 +2,7 @@ from copy import copy
 from enum import Enum
 from typing import Callable, List, Optional, Tuple
 
-from .globals import GLOBALS
+from .globals import GLOBALS, Ref, RefFlags
 from .debug_utils import *
 from .serialize import *
 from .types import Int32
@@ -188,6 +188,8 @@ class Statement(TokensRef):
 class WithStatement(Statement):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._unwrapped = False
+        GLOBALS.in_with = True # ensure inline __call__s still generate refs properly
 
     def __enter__(self):
         GLOBALS.blocks.append(self)
@@ -198,7 +200,22 @@ class WithStatement(Statement):
 
     def __exit__(self, *args):
         GLOBALS.blocks.pop()
+        GLOBALS.in_with = False
         self(*self.args_from_global)
+        
+
+    def _unwrap_statement(self, ref: Ref, single_line_tokens: List[Token], _ExecuteContainer: type):
+        for cmd in self.cmds:
+            if isinstance(cmd, _ExecuteContainer):
+                fun_token = cmd.get_fun_token()
+                if fun_token is None:
+                    print_warn(f'already unwrapped {ref}')
+                else:
+                    fun_path = GLOBALS.get_function_path(fun_token.namespace, fun_token.path)
+                    if fun_path == ref[1]:
+                        assert cmd._block_tokens != []
+                        cmd._block_tokens[1:] = single_line_tokens
+                        self._unwrapped = True
 
 
 class EmptyStatement(TokensRef):
@@ -233,12 +250,12 @@ class Block(Statement):
             statement.clear()
 
 class FunStatement(Statement):
-    def __init__(self, fun: 'Fun', attach_local_refs=False):
+    def __init__(self, fun: 'Fun', attach_local_refs=False, ref_type: RefFlags = RefFlags.NONE):
         self.fun = fun
         self.cmds = [TokensContainer(FunctionToken(self.fun.namespace, self.fun.path))]
         self.idx = None
         if attach_local_refs:
-            self.fun._attach_fun_ref(path=GLOBALS.get_function_path())
+            self.fun._attach_fun_ref(path=GLOBALS.get_function_path(), ref_type=ref_type)
     
     def __call__(self, *args):
         for fun_arg, arg in zip(self.fun.args, args):
@@ -369,21 +386,18 @@ class Fun:
     
     @classmethod
     def _wrap_statements(cls, statements: List[Statement]) -> FunctionToken:
-        namespace = GLOBALS.namespace
         caller_ref = cls._gen_ref()
         print_debug(f'_wrap_tokens call from {caller_ref}')
 
         with Pathspace(GLOBALS.gen_name()):
-            callee_ref = cls._gen_ref()
             for statement in statements:
                 GLOBALS.add_statement(statement)
-            path = copy(GLOBALS.path)
-            if callee_ref in GLOBALS.ref_graph:
-                GLOBALS.ref_graph[callee_ref].add(caller_ref)
-            else:
-                GLOBALS.ref_graph[callee_ref] = {caller_ref}
+            print_debug(f'attaching ref to {caller_ref}: anon funct:')
+            GLOBALS.ref_call(caller_ref, cls._gen_ref(), ref_type=RefFlags.EXECUTE)
 
-        return FunctionToken(namespace, path)
+            path = copy(GLOBALS.path)
+
+        return FunctionToken(GLOBALS.namespace, path)
     
     def _attach_hook(self, hook: str):
         print_debug(f'attaching hook to {self.name}: {hook}')
@@ -395,16 +409,15 @@ class Fun:
         else:
             GLOBALS.fun_hooks[hook].add(self)
 
-    def _attach_fun_ref(self, path: str):
-        self._attach_ref(self._gen_ref(path=path))
+    def _attach_fun_ref(self, path: str, ref_type: RefFlags = RefFlags.NONE):
+        self._attach_ref(self._gen_ref(path=path), ref_type=ref_type)
     
-    def _attach_ref(self, caller_ref: Tuple[str, str]):
-        # print_debug(f'attaching ref to {self.name}: {caller_ref}')
-        # self.refs.add(caller_ref)
-        if self.ref in GLOBALS.ref_graph:
-            GLOBALS.ref_graph[self.ref].add(caller_ref)
+    def _attach_ref(self, caller_ref: Tuple[str, str], ref_type: RefFlags = RefFlags.NONE):
+        print_debug(f'attaching ref to {caller_ref}: {self.name}')
+        if GLOBALS.in_with:
+            GLOBALS.ref_call(caller_ref, self.ref, ref_type=(ref_type | RefFlags.WITH_BLOCK))
         else:
-            GLOBALS.ref_graph[self.ref] = {caller_ref}
+            GLOBALS.ref_call(caller_ref, self.ref, ref_type=ref_type)
     
 class PublicFun(Fun):
     def __init__(self, name: str):

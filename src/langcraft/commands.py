@@ -2,7 +2,9 @@ from copy import deepcopy
 from enum import Enum, auto
 from typing import List, Optional, Self, Literal
 
-from .base import Statement, Fun
+from langcraft.globals import RefFlags
+
+from .base import FunStatement, Statement, Fun
 from .debug_utils import *
 from .serialize import *
 from .types import _SelectorBase, _SingleSelectorBase, Dimension, Pos, Heightmap, ResourceLocation, Rot
@@ -240,7 +242,7 @@ class ExecuteSub:
 # special commands:
 
 class _ExecuteContainer(TokensContainer):
-    def __init__(self, tokens: List[Token], block_tokens):
+    def __init__(self, tokens: List[Token], block_tokens: List[Token]):
         super().__init__(*tokens)
         self._block_tokens = block_tokens
 
@@ -253,12 +255,18 @@ class _ExecuteContainer(TokensContainer):
             run_token, fun_token = self._block_tokens
             if isinstance(fun_token, FunctionToken):
                 return fun_token
+        else:
+            return None
                 
 
 class RawExecute(Statement):
     def __init__(self, subs: List[ExecuteSub | Condition], run_statements: List[Statement] = [], add=True):
         cmds = self.as_cmds(subs, run_statements)
         super().__init__(cmds, add=add)
+
+    @classmethod
+    def conditional_fun(cls, subs: List[ExecuteSub | Condition], fun: Fun, add=True):
+        return cls(subs, [FunStatement(fun, attach_local_refs=True, ref_type=RefFlags.EXECUTE)], add=add)
 
     @staticmethod
     def as_cmds(subs: List[ExecuteSub | Condition], run_statements: List[Statement] = []):
@@ -268,7 +276,8 @@ class RawExecute(Statement):
         execute_statements = set_flags + run_statements
         if len(execute_statements) == 0:
             block_tokens = []
-            # optim handles len(execute_block) == 1
+        elif len(execute_statements) == 1:
+            block_tokens = [CommandKeywordToken('run'), *execute_statements[0].tokenize()]
         else:
             block_tokens = [CommandKeywordToken('run'), Fun._wrap_statements(execute_statements)]
         cmds.append(

@@ -1,5 +1,7 @@
 from typing import Literal, Self, List
 
+from langcraft.globals import GLOBALS
+
 from .base import Statement, Fun, Block, FunStatement, WithStatement
 from .serialize import ParseErrorToken, CommandNameToken
 from .commands import Condition, RawExecute

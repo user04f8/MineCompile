@@ -152,3 +152,73 @@ for _ in range(max_optim_steps):
     prune_refs(GLOBALS.ref_graph)
 if debug:
     print_debug(f'pruned refs: {GLOBALS.ref_graph}')
+
+
+# def prune_unused_functions(programs: Dict[str, Program], graph: Dict[Ref, Set[Ref]]):
+#     """
+#     Mark unused functions and update the function graph.
+#     """
+#     graph_update = True
+#     while graph_update:
+#         graph_update = False
+#         for fun_path, fun_program in programs.items():
+#             if fun_program.unused:
+#                 continue  # skip all discovered unused functions
+#             u = ('function', fun_path)
+#             if u not in graph:
+#                 fun_program.mark_unused()
+#                 continue
+#             if any(v[0] == '$extern' for v in graph[u]):
+#                 continue  # skip all direct external hooks
+#             if any(v[0] not in ('function',) for v in graph[u]):
+#                 continue  # skip all unhandled refs
+#             backwards = [u_ for u_, vs_ in graph.items() if u in vs_]
+
+#             if len(backwards) == 0:  # first find root nodes / leaf nodes at the reversal of the graph
+#                 removable = True
+#                 if len(fun_program.cmds) == 1:
+#                     fun_single_cmd = fun_program.cmds[0]
+#                 else:
+#                     fun_single_cmd = None
+#                 for v in graph[u]:
+#                     new_vs = deepcopy(graph[u])
+#                     match v:
+#                         case ('function', v_fun_path):
+#                             v_fun_program = programs[v_fun_path]
+#                             j = 0
+#                             func_calls = 0
+#                             for i, cmd in enumerate(v_fun_program):
+#                                 if isinstance(cmd, FunStatement):
+#                                     if GLOBALS.get_function_path(cmd.fun.namespace, cmd.fun.path) == fun_path:
+#                                         v_fun_program.unwrap_to(i + j, fun_program.cmds)
+#                                         j += len(fun_program.cmds) - 1
+#                                         func_calls += 1
+#                                 elif isinstance(cmd, Statement):
+#                                     for x in cmd.cmds:
+#                                         if isinstance(x, _ExecuteContainer):
+#                                             removable = False
+#                                             if fun_single_cmd:
+#                                                 x._block_tokens = [CommandKeywordToken('run'), *fun_single_cmd.tokenize()]
+#                                                 func_calls += 1
+#                                             else:
+#                                                 removable = False
+#                                 else:
+#                                     print_err('optim found non statement')
+#                             if func_calls == 0 and removable:
+#                                 print_err(f'no func calls found in program {v_fun_path}:\n{v_fun_program.serialize(color=False)}\nmismatch between funct and ref_graph')
+#                     if v in new_vs and removable:
+#                         new_vs.remove(v)
+#                         fun_program.mark_unused()
+#                         graph_update = True
+#                 graph[u] = new_vs
+
+# def dfs_to_extern(source: Tuple[str, str], graph: Dict[Tuple[str, str], Set[Tuple[str, str]]], discovered: Set[Tuple[str, str]]) -> Optional[str]:
+#     for u in graph.get(source, default=set()):
+#         if u[0] == '$extern':
+#             return u[1]
+#         if u not in discovered:
+#             discovered.add(u)
+#             extern_ref = dfs_to_extern(u, graph, discovered)
+#             if extern_ref:
+#                 return extern_ref
+#     return None

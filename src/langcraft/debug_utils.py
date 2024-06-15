@@ -16,3 +16,6 @@ def print_warn(msg):
 def print_debug(msg):
     if DEBUG:
         cprint(f'debug: {msg}', 'light_grey')
+
+def print_temp(msg, c='green'):
+    cprint(f'debug: {msg}', c)

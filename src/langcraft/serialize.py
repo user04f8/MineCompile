@@ -359,7 +359,7 @@ class TokensRef:
 class Program:
     def __init__(self, *cmds: TokensContainer | TokensRef):
         self.cmds: List[TokensContainer | TokensRef] = list(cmds)
-        self.unused = False
+        self.used = False
 
     def __len__(self):
         return len(self.cmds)
@@ -367,14 +367,15 @@ class Program:
     def __iter__(self):
         return self.cmds.__iter__()
     
+    @property
+    def nonempty(self):
+        return any(file_cmd is not None for file_cmd in self)
+    
     def __getitem__(self, idx):
         return self.cmds[idx]
     
     def __setitem__(self, idx, new_val: TokensContainer | TokensRef):
         self.cmds[idx] = new_val
-
-    def mark_unused(self):
-        self.unused = True
     
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
@@ -410,7 +411,7 @@ class Program:
             sep = colored(' ||\n', 'grey')
         else:
             sep = COMMAND_SEP
-        return ('# UNUSED\n' if self.unused else '') + sep.join(
+        return ('# UNUSED\n' if debug and not self.used else '') + sep.join(
                     s for s in (
                         cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None
                     ) if s != ''

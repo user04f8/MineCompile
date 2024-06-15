@@ -1,4 +1,5 @@
-from typing import Optional, Callable
+from enum import IntEnum
+from typing import Optional, Callable, Set, Tuple
 import random
 import string
 
@@ -6,6 +7,12 @@ from .serialize import Program
 from .json_utils import *
 
 DATAPACK_ROOT: str = '$root'
+
+Ref = Tuple[str, str]
+class RefFlags(IntEnum):
+    NONE = 0b0
+    WITH_BLOCK = 0b1
+    EXECUTE = 0b10
 
 class Globals:
     def __init__(self, namespace='main'):
@@ -18,10 +25,77 @@ class Globals:
 
         self.fun = None  # : Optional[Fun]  # UNUSED, can delete
         self.blocks = []
+        self.in_with = False
 
-        self.ref_graph = {}  # GLOBALS.ref_graph[callee_ref] = {caller_ref for caller_ref in caller_refs}
+        self.backwards_ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[callee_ref] = {caller_ref for caller_ref in caller_refs}
+        self.ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[caller_ref] = {callee_ref for callee_ref in callee_refs}
         self.fun_hooks = {}
         self.resource_hooks = {} # TODO
+
+    def ref_call(self, caller_ref: Ref, callee_ref: Ref, ref_type: RefFlags = RefFlags.NONE):
+        if caller_ref in self.ref_graph:
+            if callee_ref in self.ref_graph[caller_ref]:
+                self.ref_graph[caller_ref][callee_ref] |= ref_type
+            else:
+                self.ref_graph[caller_ref][callee_ref] = ref_type
+        else:
+            self.ref_graph[caller_ref] = {callee_ref: ref_type}
+        if callee_ref in self.backwards_ref_graph:
+            if caller_ref in self.backwards_ref_graph[callee_ref]:
+                self.backwards_ref_graph[callee_ref][caller_ref] |= ref_type
+            else:
+                self.backwards_ref_graph[callee_ref][caller_ref] = ref_type
+        else:
+            self.backwards_ref_graph[callee_ref] = {caller_ref: ref_type}
+
+    def ref_remap(self, removed_ref: Ref) -> None | Tuple[List[Ref], List[Ref]]:
+        if removed_ref not in self.ref_graph:
+            return
+        
+        parents = self.backwards_ref_graph.get(removed_ref, {})
+        children = self.ref_graph.get(removed_ref, {})
+
+        if any(child == removed_ref for child in children):
+            return None  # failure due to recursive reference
+
+        def or_dict(d1, d2):
+            return {
+                        k1: v1 for k1, v1 in d1.items() if k1 not in d2
+                    } | {
+                        k2: v2 for k2, v2 in d2.items() if k2 not in d1
+                    } | {
+                        k: v1 | d2[k] for k, v1 in d1.items() if k in d2  # to handle RefFlags
+                    }
+
+        # Connect each parent to each child
+        for parent in parents:
+            if parent not in self.ref_graph:
+                self.ref_graph[parent] = {}
+            self.ref_graph[parent] = or_dict(self.ref_graph[parent], children)
+        
+        for child in children:
+            if child not in self.backwards_ref_graph:
+                self.backwards_ref_graph[child] = {}
+            self.backwards_ref_graph[child] = or_dict(self.ref_graph[child], parents)
+        
+        # Remove the removed_ref from the graphs
+        if removed_ref in self.ref_graph:
+            del self.ref_graph[removed_ref]
+        if removed_ref in self.backwards_ref_graph:
+            del self.backwards_ref_graph[removed_ref]
+        
+        # Remove any direct references to the removed_ref in parents and children
+        for parent in parents:
+            if parent in self.ref_graph:
+                if removed_ref in self.ref_graph[parent]:
+                    self.ref_graph[parent].remove(removed_ref)
+        
+        for child in children:
+            if child in self.backwards_ref_graph:
+                if removed_ref in self.ref_graph[child]:
+                    self.backwards_ref_graph[child].remove(removed_ref)
+        
+        return children, parents
     
     def get_function_path(self, namespace=None, path=None):
         if namespace is None:
