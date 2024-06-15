@@ -405,16 +405,6 @@ class Fun:
             GLOBALS.ref_graph[self.ref].add(caller_ref)
         else:
             GLOBALS.ref_graph[self.ref] = {caller_ref}
-
-def fun(inner):
-    """
-    Decorator function to convert functions into Fun
-    """
-    def wrapper(*args, **kwargs):
-        with Fun() as f:
-            inner(*args, **kwargs)
-        f()
-    return wrapper
     
 class PublicFun(Fun):
     def __init__(self, name: str):
@@ -437,3 +427,59 @@ class OnLoadFun(Fun):
         self._attach_hook('#minecraft:load')
         return out
 
+def fun(inner):
+    """
+    Decorator function to convert functions into Fun, e.g.:
+    @fun
+    def f():
+        Statement('say hi')
+    """
+    with Fun() as f:
+        inner()
+    return f
+
+def metafun(inner):
+    """
+    Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
+    @metafun
+    def say(x):
+        Statement(f'say {x}')
+    """
+    def wrapper(*args, **kwargs):
+        with Fun() as f:
+            inner(*args, **kwargs)
+        return f()
+    return wrapper
+
+def public(name: str, metafun_args: list = [], metafun_kwargs: dict = {}):
+    """
+    Decorator function to make publically available function with name, e.g.
+    @public('say_hi')
+    @fun
+    def f():
+        Statement('say hi')
+    """
+    def outer_wrapper(inner: Fun):
+        with PublicFun(name) as f:
+            inner(*metafun_args, **metafun_kwargs)
+        f()
+    return outer_wrapper
+
+def _fun_subclass(fun_class: type):
+    def outer_wrapper(inner):
+        with fun_class() as f:
+            inner()
+        f()
+        class wrapper:
+            def __init__(self, f):
+                self.f = f
+
+            def __call__(self, *args, **kwargs):
+                if args != () or kwargs != {}:
+                    raise ValueError("Subclassed function from decorator doesn't support dynamic arguments")
+                self.f()
+        return wrapper(f)
+    return outer_wrapper
+
+fun.ticking = _fun_subclass(TickingFun)
+fun.on_load = _fun_subclass(OnLoadFun)

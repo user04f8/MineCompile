@@ -14,15 +14,11 @@ class _EntityRelative(_Relative):
 
 def s(**selector_kwargs):
     """
-    Decorator function for SelfSelector classes
+    TODO Decorator function for SelfSelector classes
     """
     def f(funct):
         funct()
     return f
-
-@s(tag='test')
-def f():
-    pass
 
 class Entities(_SelectorBase):
     def __init__(self,

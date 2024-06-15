@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from random import randint
 from typing import Any, Optional, Set, Tuple
@@ -32,130 +33,139 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
                 hooked_fun_names = [serialize_function_name(hooked_fun.namespace, hooked_fun.path) for hooked_fun in hooked_funs]
                 GLOBALS.add_to_function_tag(None, hooked_fun_names)
 
-    def prune_refs(graph: Dict[Tuple[str, str], Set[Tuple[str, str]]]):
-        def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]]) -> Optional[str]:
-            if source not in graph.keys():
-                return None
+    # def prune_refs(graph: Dict[Tuple[str, str], Set[Tuple[str, str]]]):
+    #     # clean graph
+    #     for key, vs in graph.items():
+    #         graph[key] = {v for v in vs if v in graph.keys() or v[0] == '$extern'}
+        
+    #     def dfs_to_extern(source: Tuple[str, str], discovered: Set[Tuple[str, str]]) -> Optional[str]:
+    #         if source not in graph.keys():
+    #             return None
             
-            print(colored(graph[source], 'blue', attrs=['underline']))
-            for u in graph[source]:
-                print(colored(u, 'blue'))
-                if u[0] == '$extern':
-                    return u[1]
-                    # external ref reached
-                if u not in discovered:
-                    discovered.add(u)
-                    extern_ref = dfs_to_extern(u, discovered)
-                    if extern_ref:
-                        return extern_ref
-            return None
+    #         for u in graph[source]:
+    #             if u[0] == '$extern':
+    #                 return u[1]
+    #                 # external ref reached
+    #             if u not in discovered:
+    #                 discovered.add(u)
+    #                 extern_ref = dfs_to_extern(u, discovered)
+    #                 if extern_ref:
+    #                     return extern_ref
+    #         return None
         
         
-        for fun_path, fun_program in programs.items():
-            u = ('function', fun_path)
-            print(colored(u, 'red'))
-            extern_ref = dfs_to_extern(u, set())
-            # print_debug(f'external_ref for {u}: {extern_ref}')
-            if extern_ref is None:
-                if fun_program.cmds:
-                    fun_serial = fun_program.serialize()
-                    print_warn(f'Pruning unreferenced function at {fun_path}: {fun_serial[:32].replace('\n', ' || ')}{'...' if len(fun_serial) > 32 else ''}')
-                fun_program.mark_unused()
+    #     for fun_path, fun_program in programs.items():
+    #         u = ('function', fun_path)
+    #         extern_ref = dfs_to_extern(u, set())
+    #         # print_debug(f'external_ref for {u}: {extern_ref}')
+    #         if extern_ref is None and not fun_program.unused:
+    #             if fun_program.cmds:
+    #                 fun_serial = fun_program.serialize()
+    #                 print_warn(f'Pruning unreferenced function at {fun_path}: {fun_serial[:32].replace('\n', ' || ')}{'...' if len(fun_serial) > 32 else ''}')
+    #             fun_program.mark_unused()
 
-    def unwrap_cmd(cmd: Statement) -> Tuple[Optional[TokensContainer], List[Tuple[str, str]]]:
-        if isinstance(cmd, FunStatement):
-            fun_path = GLOBALS.get_function_path(cmd.fun.namespace, cmd.fun.path)
-            refs = GLOBALS.ref_graph[('function', fun_path)]
-            if len(refs) > 1:
-                # if a function has multiple refs, skip it
-                return None, []
-            if any(ref[0] == '$extern' for ref in refs):
-                # if a function has direct external references, skip it 
-                return None, []
-            new_refs = []
-            for fun_caller in GLOBALS.ref_graph:
-                if fun_caller == ('function', fun_path): # if fun_caller references unwrapped function
-                    new_refs.append(fun_caller)
-            refs = set() # function had a single ref and is now unreferenced
+    #     return graph
 
-            # programs[fun_path].mark_unused()  # program has one ref and was unwrapped
-            return [cmd for cmd in programs[fun_path].cmds], new_refs
-            # del GLOBALS.ref_graph[('function', fun_path)]  
-        elif isinstance(cmd, _ExecuteContainer):
-            fun_token = cmd.get_fun_token()
-            if fun_token:
-                fun_path = GLOBALS.get_function_path(fun_token.namespace, fun_token.path)
-                refs = GLOBALS.ref_graph[('function', fun_path)]
-                refs: set
-                if len(refs) > 1:
-                    # if a function has multiple references, skip it
-                    return None, []
-                if any(ref[0] == '$extern' for ref in refs):
-                    # if a function has direct external references, skip it 
-                    return None, []
-                fun_cmd, *tmp = [cmd for cmd in programs[fun_path].cmds]
-                if not tmp:
-                    if isinstance(fun_cmd, TokensRef):
-                        fun_cmd, *tmp = fun_cmd.resolve()
-                        if not tmp:
-                            print_debug(f'function resolves to single command `{fun_cmd}` (clearing refs)')
-                            new_refs = []
-                            for fun_caller in GLOBALS.ref_graph:
-                                if fun_caller == ('function', fun_path): # if fun_caller references unwrapped function
-                                    new_refs.append(fun_caller)
-                            refs = set() # function had a single ref and is now unreferenced
-                            # programs[fun_path].mark_unused()  # (should be equivalent)
-                            return fun_cmd, new_refs
-        elif isinstance(cmd, Statement):
-            # unwrap all other TokensRefs
-            for i, inner_cmd in enumerate(cmd.cmds):
-                new_cmd, new_refs = unwrap_cmd(inner_cmd)
-                if isinstance(new_cmd, TokensContainer):
-                    print_debug(f'set cmd {cmd.cmds[i]} to {new_cmd}')
-                    if isinstance(cmd.cmds[i], _ExecuteContainer):
-                        cmd.cmds[i]._block_tokens = [CommandKeywordToken('run')] + new_cmd.tokens
-                    else:
-                        print_err('unreachable optim reached in unwrap_cmd')
-                return None, new_refs
-        else:
-            return None, []
+    # def unwrap_cmd(cmd: Statement) -> Tuple[Optional[TokensContainer], List[Tuple[str, str]]]:
+    #     if isinstance(cmd, FunStatement):
+    #         fun_path = GLOBALS.get_function_path(cmd.fun.namespace, cmd.fun.path)
+    #         if ('function', fun_path) not in GLOBALS.ref_graph:
+    #             print_err(f'unable to unwrap cmd not in GLOBALS.ref_graph: {fun_path}')
+    #             return None, []
+    #         refs = GLOBALS.ref_graph[('function', fun_path)]
+    #         if len(refs) > 1:
+    #             # if a function has multiple refs, skip it
+    #             return None, []
+    #         if any(ref[0] == '$extern' for ref in refs):
+    #             # if a function has direct external references, skip it 
+    #             return None, []
+    #         refs_from_unwrapped_fun = [ref0 for ref0, ref1s in GLOBALS.ref_graph.items() if any(ref1 == ('function', fun_path) for ref1 in ref1s)]
+    #         if len(refs_from_unwrapped_fun) > 1:
+    #             print_err(refs_from_unwrapped_fun)
+    #             return None, []
 
-    # function:optimize
-    for _ in range(max_optim_steps):
-        for program in programs.values():
-            program.optimize()
+    #         # del GLOBALS.ref_graph[('function', fun_path)] # function had a single ref and does not ref anything else
+    #         programs[fun_path].mark_unused()  # (hides warnings)
+    #         return [cmd for cmd in programs[fun_path].cmds], [] #refs_from_unwrapped_fun
+    #     elif isinstance(cmd, _ExecuteContainer):
+    #         fun_token = cmd.get_fun_token()
+    #         if fun_token:
+    #             fun_path = GLOBALS.get_function_path(fun_token.namespace, fun_token.path)
+    #             if ('function', fun_path) not in GLOBALS.ref_graph:
+    #                 return None, []
+    #             refs = GLOBALS.ref_graph[('function', fun_path)]
+    #             refs: set
+    #             if len(refs) > 1:
+    #                 # if a function has multiple references, skip it
+    #                 return None, []
+    #             if any(ref[0] == '$extern' for ref in refs):
+    #                 # if a function has direct external references, skip it 
+    #                 return None, []
+    #             fun_cmd, *tmp = [cmd for cmd in programs[fun_path].cmds]
+    #             if not tmp:
+    #                 if isinstance(fun_cmd, TokensRef):
+    #                     fun_cmd, *tmp = fun_cmd.resolve()
+    #                     if not tmp:
+    #                         print_debug(f'function resolves to single command `{fun_cmd}` (clearing refs)')
+    #                         new_refs = []
+    #                         for fun_caller in GLOBALS.ref_graph:
+    #                             if fun_caller == ('function', fun_path): # if fun_caller references unwrapped function
+    #                                 new_refs.append(fun_caller)
+    #                         # del GLOBALS.ref_graph[('function', fun_path)] # function had a single ref and is now unreferenced
+    #                         programs[fun_path].mark_unused()  # (hides warnings)
+    #                         return fun_cmd, new_refs
+    #     elif isinstance(cmd, Statement):
+    #         # unwrap all other TokensRefs
+    #         for i, inner_cmd in enumerate(cmd.cmds):
+    #             new_cmd, new_refs = unwrap_cmd(inner_cmd)
+    #             if isinstance(new_cmd, TokensContainer):
+    #                 print_debug(f'set cmd {cmd.cmds[i]} to {new_cmd}')
+    #                 if isinstance(cmd.cmds[i], _ExecuteContainer):
+    #                     cmd.cmds[i]._block_tokens = [CommandKeywordToken('run')] + new_cmd.tokens
+    #                 else:
+    #                     print_err('unreachable optim reached in unwrap_cmd')
+    #             return None, new_refs
+    #     return None, []
+
+    # # function:optimize
+    # for _ in range(max_optim_steps):
+    #     for program in programs.values():
+    #         program.optimize()
         
-        for fun_path, program in programs.items():
-            for i, cmd in enumerate(program):
-                try:
-                    new_cmd, new_refs = unwrap_cmd(cmd)
-                    for new_ref in new_refs:
-                        GLOBALS.ref_graph[new_ref] = (('function', fun_path), ())
-                    if isinstance(new_cmd, list):
-                        program.unwrap_to(i, new_cmd)
-                    elif new_cmd:
-                        print_err('outer new_cmd reached, likely raw _ExecuteContainer')
-                except ValueError:
-                    pass # TODO
+    #     for fun_path, program in programs.items():
+    #         if ('function', fun_path) not in GLOBALS.ref_graph:
+    #             program.mark_unused()
+    #         if program.unused:
+    #             continue
+    #         j = 0
+    #         for i, cmd in enumerate(program):
+    #             try:
+    #                 new_cmd, new_refs = unwrap_cmd(cmd)
+    #                 # for new_ref in new_refs:
+    #                 #     if new_ref in GLOBALS.ref_graph:
+    #                 #         GLOBALS.ref_graph[new_ref].add(('function', fun_path))
+    #                 #     else:
+    #                 #         print_warn(f'new reference {new_ref} added to GLOBALS.ref_graph in optim')
+    #                 #         GLOBALS.ref_graph[new_ref] = {('function', fun_path)}
+    #                 if isinstance(new_cmd, list):
+    #                     program.unwrap_to(i + j, new_cmd)
+    #                     j += len(new_cmd) - 1
+    #                 elif new_cmd:
+    #                     print_err('outer new_cmd reached, likely raw _ExecuteContainer')
+    #             except ValueError:
+    #                 pass # TODO
 
-    prune_refs(GLOBALS.ref_graph)
+    #     # for fun_path, program in programs.items():
+    #     #     if program.unused:
+    #     #         if ('function', fun_path) in GLOBALS.ref_graph:
+    #     #             del GLOBALS.ref_graph[('function', fun_path)]
+
+    #     prune_refs(GLOBALS.ref_graph)
+    # if debug:
+    #     print_debug(f'pruned refs: {GLOBALS.ref_graph}')
+
     
-    if debug:
-        # display refs
-        print_debug(f'ref graph: {GLOBALS.ref_graph}')
-
     
-    # class Validate:
-    #     def __init__(self):
-    #         self.valid_fun_refs = [path for path, program in programs.items() if not program.unused]
-    #         self.valid_json_refs = [path for path, json in jsons]
-
-    #     def function_ref(self, namespace: str, path: List['str']):
-    #         return GLOBALS.get_function_path(namespace, path) in self.valid_fun_refs
-        
-    #     def json_ref(namespace: str, path: List['str']):
-    #         return GLOBALS.get_json_path(namespace, path) in self.valid_json_refs
-
     # validate = Validate()
     valid_fun_refs = [path for path, program in programs.items() if not program.unused]
     valid_json_refs = [path for path, json in jsons.items()]

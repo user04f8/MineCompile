@@ -57,23 +57,13 @@ with TickingFun():
             explosion_trail.kill()
         # Statement('schedule function main:timed_exlpode 3s append')
     
-    with Entities('e', tag='timed_explosion'):
+    with Entities(tag='timed_explosion'):
         Statement('particle large_smoke ~ ~ ~ 0 0 0 .1 3')
 
 with PublicFun('clock') as clock:
     # with Entity(Selector('e', type='vindicator')) as z:
     #     seb()
     Statement('schedule function main:clock 1s')
-
-@fun
-def say(x):
-    Statement(f'say {x}')
-
-with OnLoadFun():
-    say('hi')
-    Statement('scoreboard objectives add i dummy')
-    Statement('schedule function main:clock 1s')
-
 
 # compile_all(write=True, root_dir='../datapacks/compile_test/data')
 display_all(max_optim_steps=0)

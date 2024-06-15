@@ -2,9 +2,6 @@
 
 from langcraft import *
 
-with Fun() as f:
-    Statement('say hi')
-
 with Fun() as g:
     with Entities('e', tags='propel') as e:
         e.teleport(Pos.angular(forward=1))
@@ -15,11 +12,9 @@ with Fun() as h:
         Statement('say bye')
 
 with PublicFun('run_f'):
-    RawExecute([Condition('A')], run_block=Block(FunStatement(f, attach_local_refs=True)))
+    RawExecute([Condition('A')], run_statements=[FunStatement(g, attach_local_refs=True)])
     with If(Condition('B')):
-        f()
-    f()
-    f()
+        g()
     g()
     Teleport(Pos(1, 0, 0,))
     Teleport(Pos.relative(0, 1, 0))
@@ -27,5 +22,6 @@ with PublicFun('run_f'):
     for i in range(10):
         Teleport(Pos.relative(10, 0, 0))
 
-display_all(max_optim_steps=0)
+# display_all(max_optim_steps=0)
 display_all(max_optim_steps=1)
+# display_all()
