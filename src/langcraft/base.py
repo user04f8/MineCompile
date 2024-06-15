@@ -464,19 +464,29 @@ def metafun(inner):
         return f()
     return wrapper
 
-def public(name: str, metafun_args: list = [], metafun_kwargs: dict = {}):
+def public(name: str | Callable, metafun_args: list = [], metafun_kwargs: dict = {}):
     """
     Decorator function to make publically available function with name, e.g.
     @public('say_hi')
     @fun
     def f():
         Statement('say hi')
+
+    Alternative equivalent usage for argument-free functions:
+    @public
+    def say_hi():
+        Statement('say hi)
     """
-    def outer_wrapper(inner: Fun):
-        with PublicFun(name) as f:
-            inner(*metafun_args, **metafun_kwargs)
-        f()
-    return outer_wrapper
+    if isinstance(name, str):
+        def outer_wrapper(inner: Fun):
+            with PublicFun(name) as f:
+                inner(*metafun_args, **metafun_kwargs)
+            f()
+        return outer_wrapper
+    inner = name
+    with PublicFun(name) as f:
+        inner(*metafun_args, **metafun_kwargs)
+    f()
 
 def _fun_subclass(fun_class: type):
     def outer_wrapper(inner):
