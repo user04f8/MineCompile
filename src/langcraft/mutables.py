@@ -1,7 +1,9 @@
 from typing import Literal, Optional
 
+from langcraft.serialize import SelectorToken
+
 from .base import Fun, FunStatement, Statement, Block
-from .types import _Relation, Dimension, Selector, Pos, Rot, _Relative, SingleSelector, Heightmap
+from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, Rot, _Relative, _SingleSelectorBase, Heightmap
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
 from .minecraft_builtins.dimensions import _DimensionLiteral
 
@@ -10,18 +12,34 @@ class _EntityRelative(_Relative):
         super().__init__()
         self.entity = entity
 
-class Entity:
-    def __init__(self, selector: Selector):
-        self.selector = selector
-        self.as_selector: Literal['self'] | Selector | None = 'self'
-        self.at_target: Selector | None = Selector()
+def s(**selector_kwargs):
+    """
+    Decorator function for SelfSelector classes
+    """
+    def f(funct):
+        funct()
+    return f
+
+@s(tag='test')
+def f():
+    pass
+
+class Entities(_SelectorBase):
+    def __init__(self,
+                 selector_type: _SELECTOR_TYPE = 'e',
+                 **selector_kwargs
+                 ):
+        super().__init__(selector_type, **selector_kwargs)
+        # self.token: SelectorToken  # from super().__init__(...)
+        self.as_selector: Literal['self'] | _SelectorBase | None = 'self'
+        self.at_target: _SelectorBase | Pos | Rot | None = _SelectorBase()
         self.positioned = self.rotated = self.dimension = None
         self.at_heightmap: Optional[Heightmap] = None
         self.on_relation: Optional[_Relation] = None
     
     def as_parent(self):
         self.as_selector = None
-        self.at = self.selector()
+        self.at_target = self
         return self
 
     def at_parent(self):
@@ -29,9 +47,9 @@ class Entity:
         return self
 
     def at(self,
-           at_target: Selector | Pos | Rot = Selector(),
-           pos: Pos | Selector | None = None,
-           rot: Rot | Selector | None = None,
+           at_target: _SelectorBase | Pos | Rot = _SelectorBase(),
+           pos: Pos | _SelectorBase | None = None,
+           rot: Rot | _SelectorBase | None = None,
            on: Heightmap | None = None):
         """
         If at_target is not Selector(), the parent's position, rotation, and dimension are used except where otherwise specified
@@ -56,12 +74,12 @@ class Entity:
         subs = []
         match mode:
             case 'as':
-                subs.append(ExecuteSub.as_(self.selector))
+                subs.append(ExecuteSub.as_(self.token))
             case 'at':
-                subs.append(ExecuteSub.at(self.selector))
+                subs.append(ExecuteSub.at(self.token))
             case 'both':
-                subs.append(ExecuteSub.as_(self.selector))
-                subs.append(ExecuteSub.at(Selector()))  # as <selector> at @s
+                subs.append(ExecuteSub.as_(self.token))
+                subs.append(ExecuteSub.at(_SelectorBase()))  # as <selector> at @s
         RawExecute(subs, Block(FunStatement(funct, attach_local_refs=True)))
 
     @property
@@ -99,66 +117,73 @@ class Entity:
 
     def __enter__(self):
         self.execute_as_fun = Fun().__enter__()
-        self.old_selector = self.selector
-        self.selector = SingleSelector()
+        self.old_token = self.token
+        self.token = _SingleSelectorBase().token
         return self
 
     # position and rotation
     def teleport(self, loc: Pos = Pos(), *rotation_args):
-        Teleport(self.selector, loc, *rotation_args)
+        Teleport(self, loc, *rotation_args)
+    def propel(self, x: int):
+        Teleport(self, Pos.angular(forward=x))
     @property
     def pos(self):
         return Pos()
     @pos.setter
     def pos(self, pos_: Pos):
-        Teleport(self.selector, pos_)
+        Teleport(self, pos_)
     @property
     def x(self):
         return _EntityRelative(self)
     @x.setter
     def x(self, x_):
-        Teleport(self.selector, Pos(x=x_))
+        Teleport(self, Pos(x=x_))
     @property
     def y(self):
         return _EntityRelative(self)
     @y.setter
     def y(self, y_):
-        Teleport(self.selector, Pos(y=y_))
+        Teleport(self, Pos(y=y_))
     @property
     def z(self):
         return _EntityRelative(self)
     @z.setter
     def z(self, z_):
-        Teleport(self.selector, Pos(z=z_))
+        Teleport(self, Pos(z=z_))
     @property
     def yaw(self):
         return _EntityRelative(self)
     @yaw.setter
     def yaw(self, yaw_):
-        Teleport(self.selector, Rot(yaw=yaw_))
+        Teleport(self, Rot(yaw=yaw_))
     @property
     def pitch(self):
         return _EntityRelative(self)
     @pitch.setter
     def pitch(self, pitch_):
-        Teleport(self.selector, Rot(pitch=pitch_))
+        Teleport(self, Rot(pitch=pitch_))
 
     def kill(self):
-        Kill(self.selector)
+        Kill(self)
     
     def __exit__(self, *args):
         self.execute_as_fun.__exit__()
-        self.selector = self.old_selector
-        # TODO: could dynamically decide if just as_ or just at are necessary 
+        self.token = self.old_token
+        # TODO: could dynamically decide if just as_ or just at are necessary
         subs = []
         if self.as_selector == 'self':
-            subs.append(ExecuteSub.as_(self.selector))
+            subs.append(ExecuteSub.as_(self))
         elif self.as_selector:
             subs.append(ExecuteSub.as_(self.as_selector))
         if self.dimension:
             subs.append(ExecuteSub.in_(self.dimension))
         if self.at_target:
-            subs.append(ExecuteSub.at(self.at_target))
+            if isinstance(self.at_target, _SelectorBase):
+                subs.append(ExecuteSub.at(self.at_target))
+            if isinstance(self.at_target, Pos):
+                subs.append(ExecuteSub.positioned(self.at_target))
+            if isinstance(self.at_target, Rot):
+                subs.append(ExecuteSub.rotated(self.at_target))
         if self.positioned:
             subs.append(ExecuteSub.positioned(self.positioned))
         if self.rotated:
@@ -167,4 +192,10 @@ class Entity:
             subs.append(ExecuteSub.positioned(self.at_heightmap))
         
         
-        Statement(RawExecute.as_cmds(subs, Block(FunStatement(self.execute_as_fun, attach_local_refs=True))))
+        Statement(RawExecute.as_cmds(subs, [FunStatement(self.execute_as_fun, attach_local_refs=True)]))
+
+class Self(Entities):
+    def __init__(self,
+                 **selector_kwargs
+                 ):
+        super().__init__('s', **selector_kwargs)

@@ -3,6 +3,9 @@ from uuid import uuid4
 from itertools import product
 
 from termcolor import colored
+
+from langcraft.json_utils import JSON
+
 from .debug_utils import *
 
 _Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "cyan", "light_grey",
@@ -12,7 +15,7 @@ class _Colors:
     # termcolor colors for each token type
     DEFAULT = 'white'
     SERIALIZABLE_DEFAULT = 'red'
-    RAW = 'light_green' # hardcoded to be on_color='on_black'
+    RAW = 'red' # hardcoded to be on_color='on_black'
     COMMAND = 'light_magenta' # hardcoded to be bold
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan' # hardcoded to be underlined
@@ -22,8 +25,10 @@ class _Colors:
 
     SERIALIZABLE: Dict[str, _Color] = {
         'ResourceLocation': 'blue',
-        'Selector': 'green',
-        'SingleSelector': 'light_green',
+        '_SelectorBase': 'white',
+        '_SingleSelectorBase': 'white',
+        'Entities': 'green',
+        'Self': 'white',
         'Pos': 'yellow',
         'Rot': 'yellow'
     }
@@ -231,7 +236,6 @@ class CheckFlagToken(Token):
 class SelectorToken(Token):
     def __init__(self, s: str = 's', **kwargs):
         # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
-        assert s in {'p', 'r', 'a', 'e', 's', 'n'}
         self.s = s
         self.kwargs = kwargs
 
@@ -249,6 +253,9 @@ class ResourceLocToken(Token):
 
     def __str__(self):
         return self.namespace + ':' + '/'.join(p for p in self.path)
+    
+class JSONRefToken(ResourceLocToken):
+    pass
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
@@ -265,8 +272,15 @@ class TokensContainer:
     def tokenize(self):
         return list(self.tokens)
 
-    def serialize(self, debug=False, color=False, force_color=None) -> str | SerializeErrorToken:
+    def serialize(self, debug=False, color=False, force_color=None, validate_fun=lambda namespace, path: True, validate_json=lambda namespace, path: True) -> str | SerializeErrorToken:
         def token_serialize(t: Token) -> str:
+            if isinstance(t, FunctionToken):
+                if not validate_fun(t.namespace, t.path):
+                    return colored(str(t), 'red', 'on_black', attrs=['blink', 'bold'])
+            if isinstance(t, JSONRefToken):
+                if not validate_json(t.namespace, t.path):
+                    return colored(str(t), 'red', 'on_black', attrs=['blink', 'bold'])
+
             if force_color:
                 return colored(str(t), force_color)
             elif debug:

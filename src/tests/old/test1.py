@@ -10,7 +10,7 @@ with Partial(Fun) as (f, args):
 
 with TickingFun():
     
-    f(Selector(), ResourceLocation('minecraft:asdfjkl'))()
+    f(_SelectorType(), ResourceLocation('minecraft:asdfjkl'))()
 
     with Fun()[int, int] as (g, (x, y)):
         Statement(x)

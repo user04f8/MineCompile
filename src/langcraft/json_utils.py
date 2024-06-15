@@ -1,6 +1,7 @@
 from typing import Self, List, Dict
 import json
 
+
 class JSONtemplate:
     def __init__(self, type_dict: dict, cls_dict: dict):
         self.type_dict = type_dict
@@ -25,7 +26,7 @@ class JSON:
         try:
             return self.obj[name]
         except KeyError:
-                raise AttributeError
+            raise AttributeError
         
     def __repr__(self) -> str:
         return 'JSON(' + ', '.join(f'{key}={val}' for key, val in self.obj.items()) +')'
@@ -33,8 +34,9 @@ class JSON:
     def __str__(self) -> str:
         return str(self.obj)
     
-    def serialize(self, debug=False, color=False):
+    def serialize(self, debug=False, color=False, validate_fun: callable = lambda namespace, path: True, validate_json: callable = lambda namespace, path: True):
         if debug:
+            # TODO: potentially add validate_fun/validate_json?
             return json.dumps(self.obj, indent=2, sort_keys=True)
         else:
             return json.dumps(self.obj)

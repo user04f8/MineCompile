@@ -1,9 +1,10 @@
-from typing import Self, List
+from typing import Literal, Self, List
 
 from .base import Statement, Fun, Block, FunStatement, WithStatement
 from .serialize import ParseErrorToken, CommandNameToken
 from .commands import Condition, RawExecute
 from .debug_utils import *
+from .types import _Days, _Seconds
 
 class If(WithStatement):
     def __init__(self, condition: Condition | str, add=True):
@@ -19,7 +20,7 @@ class If(WithStatement):
         if self.condition.always_true:
             self.cmds = self.if_block.get_cmds()
         elif not self.condition.always_false:
-            self.cmds += RawExecute.as_cmds(subs=[self.condition], run_block=self.if_block)
+            self.cmds += RawExecute.as_cmds(subs=[self.condition], run_statements=self.if_block.statements)
         return self
     
     def Else(self, *statements: Statement | str) -> Self:
@@ -28,7 +29,7 @@ class If(WithStatement):
         if self.condition.always_false:
             self.tokens = self.else_block.get_cmds()
         elif not self.condition.always_true:
-            self.cmds += RawExecute.as_cmds(subs=[~self.condition], run_block=self.else_block).cmds
+            self.cmds += RawExecute.as_cmds(subs=[~self.condition], run_statements=self.else_block.statements)
         return self
 
 class While(WithStatement):
@@ -62,3 +63,24 @@ class Do(Statement):
         self.cmds = [FunStatement(f)]
         return self
 
+class Schedule(WithStatement):
+    def __init__(self, time: int | float, time_type: None | Literal['s'] | Literal['d'] = None, add=True):
+        super().__init__([], add=add)
+
+        assert time > 0
+        if time_type:
+            self.time_type = time_type
+            self.time = time
+        elif time % _Days == 0:
+            self.time = time // _Days
+            self.time_type = 'd'
+        elif time % _Seconds == 0:
+            self.time = time // _Seconds
+            self.time_type = 's'
+        else:
+            self.time = time
+            self.time_type = ''
+
+    def __call__(self, *statements: Statement) -> Self:
+        Fun()(statement for statement in statements)
+        self.cmds = []

@@ -1,12 +1,11 @@
-from copy import copy, deepcopy
+from copy import deepcopy
 from enum import Enum, auto
 from typing import List, Optional, Self, Literal
 
-from .base import Statement, Fun, Block, FunStatement
-from .serialize import *
-from .types import *
+from .base import Statement, Fun
 from .debug_utils import *
-from .types import _Relative
+from .serialize import *
+from .types import _SelectorBase, _SingleSelectorBase, Dimension, Pos, Heightmap, ResourceLocation, Rot
 
 class ConditionType(Enum):
     STR = auto()
@@ -155,7 +154,7 @@ class Condition:
                     case ConditionType.STR:
                         tokens = [RawToken(self.value)]
                 return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), *tokens]
-            
+        
     def pre_tokenize(self) -> Optional[Flag]:
         match self.condition_type:
             case ConditionType.OR:
@@ -171,7 +170,7 @@ class ExecuteSub:
 
     def tokenize(self) -> List[Token]:
         return [self.subcmd, *self.tokens]
-    
+
     def pre_tokenize(self):
         return None
 
@@ -184,11 +183,11 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def as_(cls, selector: Selector):
+    def as_(cls, selector: _SelectorBase):
         return cls('as', selector)
 
     @classmethod
-    def at(cls, selector: Selector):
+    def at(cls, selector: _SelectorBase):
         return cls('at', selector)
 
     @classmethod
@@ -204,10 +203,10 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def positioned(cls, pos: Pos | Selector | Heightmap):
+    def positioned(cls, pos: Pos | _SelectorBase | Heightmap):
         if isinstance(pos, Pos):
             return cls('positioned', pos)
-        elif isinstance(pos, Selector):
+        elif isinstance(pos, _SelectorBase):
             return cls('positioned', CommandKeywordToken('as'), pos)
         else: # isinstance(pos, Heightmap)
             return cls('positioned', CommandKeywordToken('over'), MiscToken(pos))
@@ -257,27 +256,21 @@ class _ExecuteContainer(TokensContainer):
                 
 
 class RawExecute(Statement):
-    def __init__(self, subs: List[ExecuteSub | Condition], run_block: Block = Block(), add=True):
-        cmds = self.as_cmds(subs, run_block)
+    def __init__(self, subs: List[ExecuteSub | Condition], run_statements: List[Statement] = [], add=True):
+        cmds = self.as_cmds(subs, run_statements)
         super().__init__(cmds, add=add)
 
     @staticmethod
-    def as_cmds(subs: List[ExecuteSub | Condition], run_block: Block = Block()):
+    def as_cmds(subs: List[ExecuteSub | Condition], run_statements: List[Statement] = []):
         flags = [sub.pre_tokenize() for sub in subs]
         cmds = [TokensContainer(ResetFlagToken(flag)) for flag in flags if isinstance(flag, Flag)]
         set_flags = [Statement(SetFlagToken(flag), add=False) for flag in flags if isinstance(flag, Flag)]
-        execute_block = Block(*(set_flags + run_block.statements))
-        if len(execute_block) == 0:
+        execute_statements = set_flags + run_statements
+        if len(execute_statements) == 0:
             block_tokens = []
-        single_line_tokens = execute_block.single_line_tokenize()
-        if single_line_tokens:
-            block_tokens = [CommandKeywordToken('run')] + execute_block.single_line_tokenize()
+            # optim handles len(execute_block) == 1
         else:
-            # block_tokens = [
-            #     CommandKeywordToken('run'),
-            #     FunStatement(Fun()(execute_block.tokenize()), attach_local_refs=True)
-            # ]
-            block_tokens = [CommandKeywordToken('run'), Fun._wrap_tokens(execute_block.tokenize())]
+            block_tokens = [CommandKeywordToken('run'), Fun._wrap_statements(execute_statements)]
         cmds.append(
             _ExecuteContainer(
                 [CommandNameToken('execute')] +
@@ -304,13 +297,13 @@ class Teleport(Statement):
     def __init__(self, /, *args, add=True):
         # args = [arg for arg in args if arg is not None] # trim kwarg=None to defaults
         self.simple = False
-        if len(args) == 1 and isinstance(args[0], SingleSelector):
+        if len(args) == 1 and isinstance(args[0], _SingleSelectorBase):
             tokens = args
         else:
-            if args and isinstance(args[0], Selector):
+            if args and isinstance(args[0], _SelectorBase):
                 self.target, *args = args
             else:
-                self.target = Selector()
+                self.target = _SelectorBase()
             if args and isinstance(args[0], Pos):
                 self.loc, *args = args
             else:
@@ -342,7 +335,7 @@ class Teleport(Statement):
                 return Teleport(self.target, self.loc.join(cmd.loc), add=False)
 
 class Kill(Statement):
-    def __init__(self, selector: Optional[Selector] = None, add=True):
+    def __init__(self, selector: Optional[_SelectorBase] = None, add=True):
         cmds = [CommandNameToken('kill')]
         if selector is not None:
             cmds.append(selector)
@@ -386,11 +379,11 @@ class Advancement(RawCommand):
                 return [CommandKeywordToken('only'), advancement]
 
     @classmethod
-    def grant(cls, target: Selector, advancement: Literal['*'] | ResourceLocation, criterion=None, parents=False, children=False):
+    def grant(cls, target: _SelectorBase, advancement: Literal['*'] | ResourceLocation, criterion=None, parents=False, children=False):
         return cls(CommandKeywordToken('grant'), target, *cls._tokenize_sub(advancement, criterion, parents, children))
 
     @classmethod
-    def revoke(cls, target: Selector, advancement: Literal['*'] | ResourceLocation, criterion=None, parents=False, children=False):
+    def revoke(cls, target: _SelectorBase, advancement: Literal['*'] | ResourceLocation, criterion=None, parents=False, children=False):
         return cls(CommandKeywordToken('revoke'), target, *cls._tokenize_sub(advancement, criterion, parents, children))
 
 ...  # TODO

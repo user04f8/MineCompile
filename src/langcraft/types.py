@@ -1,9 +1,8 @@
 from enum import StrEnum
 from typing import Literal, Self
-from termcolor import colored
 
 from .debug_utils import print_debug
-from .serialize import ResourceLocToken, Token, RawToken, SelectorToken, Serializable
+from .serialize import ResourceLocToken, Token, SelectorToken, Serializable
 from .minecraft_builtins.dimensions import _DimensionLiteral
 
 class Int32(Token):
@@ -16,16 +15,20 @@ class Int32(Token):
     def __str__(self):
         return str(self.x)
 
-class Selector(Serializable):
-    def __init__(self, s = 's', **kwargs):
-        self.token: SelectorToken = SelectorToken(s, **kwargs)
+_SELECTOR_TYPE = Literal['s'] | Literal['a'] | Literal['p'] | Literal['e'] | Literal['n'] | Literal['r']
+
+class _SelectorBase(Serializable):
+    def __init__(self,
+                 selector_type: _SELECTOR_TYPE = 's',
+                 **selector_kwargs):
+        self.token: SelectorToken = SelectorToken(selector_type, **selector_kwargs)
 
     def __eq__(self, sel: Self):
         return (self.token.s == sel.token.s and self.token.kwargs == sel.token.kwargs)
 
-class SingleSelector(Selector):
-    def __init__(self, s: str | Selector = 's', **kwargs) -> None:
-        if isinstance(s, Selector):
+class _SingleSelectorBase(_SelectorBase):
+    def __init__(self, s: str | _SelectorBase = 's', **kwargs) -> None:
+        if isinstance(s, _SelectorBase):
             self.token = s.token
         else:
             super().__init__(s, **kwargs)
@@ -213,3 +216,6 @@ class _Relation(Serializable):
 
     def __str__(self):
         return self.relation
+
+_Seconds = 20
+_Days = 24000

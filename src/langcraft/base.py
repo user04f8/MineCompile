@@ -1,13 +1,11 @@
 from copy import copy
 from enum import Enum
-from typing import Any, Callable, List, Optional, Dict, Set, Tuple
-from pathlib import Path
+from typing import Callable, List, Optional, Tuple
 
-from .globals import GLOBALS, DATAPACK_ROOT
-from .serialize import *
-from .json_utils import *
-from .types import *
+from .globals import GLOBALS
 from .debug_utils import *
+from .serialize import *
+from .types import Int32
 
 
 class Namespace:
@@ -330,7 +328,7 @@ class Fun:
 
         self.parent = GLOBALS.fun
         GLOBALS.fun = self
-        self.ref, _ = self._gen_ref()
+        self.ref = self._gen_ref()
         if self.in_types is None:
             return self
         elif isinstance(self.in_types, ArgType):
@@ -341,11 +339,11 @@ class Fun:
             return self, self.args
         
     @staticmethod
-    def _gen_ref(path=None, attrs: tuple = ()) -> Tuple[Tuple[str, str], Tuple[str, ...]]:
+    def _gen_ref(path=None) -> Tuple[str, str]:
         if path:
-            return ('function', path), attrs
+            return ('function', path)
         else:
-            return ('function', GLOBALS.get_function_path()), attrs
+            return ('function', GLOBALS.get_function_path())
     
     def __exit__(self, *args):
         GLOBALS.exit_path(self.name)
@@ -370,17 +368,17 @@ class Fun:
             return fun_statement
     
     @classmethod
-    def _wrap_tokens(cls, tokens: List[Token]) -> FunctionToken:
-
+    def _wrap_statements(cls, statements: List[Statement]) -> FunctionToken:
         namespace = GLOBALS.namespace
         caller_ref = cls._gen_ref()
         print_debug(f'_wrap_tokens call from {caller_ref}')
 
         with Pathspace(GLOBALS.gen_name()):
-            callee_ref, _ = cls._gen_ref(attrs=('no_unwrap',))
-            GLOBALS.add_statement(TokensContainer(*tokens))
+            callee_ref = cls._gen_ref()
+            for statement in statements:
+                GLOBALS.add_statement(statement)
             path = copy(GLOBALS.path)
-            if caller_ref in GLOBALS.ref_graph:
+            if callee_ref in GLOBALS.ref_graph:
                 GLOBALS.ref_graph[callee_ref].add(caller_ref)
             else:
                 GLOBALS.ref_graph[callee_ref] = {caller_ref}
@@ -390,7 +388,7 @@ class Fun:
     def _attach_hook(self, hook: str):
         print_debug(f'attaching hook to {self.name}: {hook}')
         self._attach_ref(
-            (('$extern', hook), ())
+            ('$extern', hook)
         )
         if hook not in GLOBALS.fun_hooks:
             GLOBALS.fun_hooks[hook] = {self}
@@ -400,7 +398,7 @@ class Fun:
     def _attach_fun_ref(self, path: str):
         self._attach_ref(self._gen_ref(path=path))
     
-    def _attach_ref(self, caller_ref: Tuple[Tuple[str, str], Tuple[str, ...]]):
+    def _attach_ref(self, caller_ref: Tuple[str, str]):
         # print_debug(f'attaching ref to {self.name}: {caller_ref}')
         # self.refs.add(caller_ref)
         if self.ref in GLOBALS.ref_graph:
@@ -408,6 +406,16 @@ class Fun:
         else:
             GLOBALS.ref_graph[self.ref] = {caller_ref}
 
+def fun(inner):
+    """
+    Decorator function to convert functions into Fun
+    """
+    def wrapper(*args, **kwargs):
+        with Fun() as f:
+            inner(*args, **kwargs)
+        f()
+    return wrapper
+    
 class PublicFun(Fun):
     def __init__(self, name: str):
         super().__init__(name=name)
