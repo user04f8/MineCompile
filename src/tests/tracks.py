@@ -9,12 +9,12 @@ def _debug():
     DebugStatement()
 
 
-@caching_metafun()
+@metafun()
 def perpendiculars(block_type, thickness: int):
     for i in range(-thickness, thickness+1):
         Statement(f'setblock ^{i} ^ ^ {block_type}')
 
-@metafun
+@metafun()
 def turn_segment(radius, turn_degrees, block_type='ice', thickness=5, step_size=0.4):
     with Self().at(rot=Rot(pitch=0)):
         # line(each_block=perpendiculars,
@@ -36,7 +36,7 @@ def turn_segment(radius, turn_degrees, block_type='ice', thickness=5, step_size=
         Statement(f'scoreboard players set @s i {int(num_steps) + 1}')
         f()
 
-@metafun
+@metafun()
 def segment(length, block_type='ice', thickness=5, step_size=0.5):
     with Self().at(rot=Rot(pitch=0)):
         num_steps = round(length / step_size)
@@ -60,3 +60,4 @@ def _test():
 
 out = compile_all(write=True, root_dir='../datapacks/track_elements')
 display_all()
+display(out, regex='main:_test/x0/x0/x0/x0')

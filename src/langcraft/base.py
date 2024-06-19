@@ -481,34 +481,42 @@ def fun(inner):
         inner()
     return f
 
-def metafun(inner):
-    """
-    Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
-    @metafun
-    def say(x):
-        Statement(f'say {x}')
-    """
-    def wrapper(*args, **kwargs):
-        with Fun() as f:
-            inner(*args, **kwargs)
-        return f()
-    return wrapper
-
-
-class caching_metafun:
+class metafun:
     def __init__(self):
-        self.caches = {}
+        self.caches: Dict[Tuple[tuple, frozenset], Fun] = {}
 
     def __call__(self, inner):
+        """
+        Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
+        @metafun
+        def say(x):
+            Statement(f'say {x}')
+        """
         def wrapper(*args, **kwargs):
             frozen_kwargs = frozenset(kwargs.items())
-            cache_key = (args, frozen_kwargs)
+            cache_key = (args, frozen_kwargs) # could include inner.__name__
             if cache_key not in self.caches:
                 with Fun() as f:
                     inner(*args, **kwargs)
                 self.caches[cache_key] = f
-            return self.caches[cache_key]()
+            f_stat = self.caches[cache_key]()
+            return f_stat
         return wrapper
+
+# def metafun(inner):
+#     """
+#     Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
+#     @metafun
+#     def say(x):
+#         Statement(f'say {x}')
+#     """
+#     return _global_metafun_cache(inner)
+
+    # def wrapper(*args, **kwargs):  # non-cached behavior
+    #     with Fun() as f:
+    #         inner(*args, **kwargs)
+    #     return f()
+    # return wrapper
 
 def lambda_metafun(inner):
     def wrapper(*args, **kwargs):

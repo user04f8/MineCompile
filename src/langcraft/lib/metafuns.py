@@ -2,7 +2,7 @@ from langcraft import *
 
 __all__ = ('line',)
 
-@metafun
+@metafun()
 def line(each_block: Callable, continue_condition, max_len: int, final_block: Callable = lambda: None, step_dist = 1.):
     with Fun() as f:
         each_block()
