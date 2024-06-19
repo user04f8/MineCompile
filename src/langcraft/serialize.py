@@ -92,6 +92,8 @@ class StrToken(Token):
 
 class MiscToken(StrToken):
     COLOR = _Colors.MISC
+    def __init__(self, obj):
+        self.s = str(obj)
 
 class CommandNameToken(StrToken):
     COLOR = _Colors.COMMAND
@@ -246,14 +248,21 @@ class SelectorToken(Token):
             return f'@{self.s}[{",".join(f"{key}={val}" for key, val in self.kwargs.items())}]'
 
 class ResourceLocToken(Token):
-    def __init__(self, namespace: str = 'minecraft', path: List[str] = []):
-        # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
+    def __init__(self, namespace: str, path: List[str]):
         self.namespace = namespace
         self.path = path
 
     def __str__(self):
         return self.namespace + ':' + '/'.join(p for p in self.path)
-    
+
+class BuiltinResourceToken(Token):
+    def __init__(self, s: str):
+        self.s = s
+
+    def __str__(self):
+        # could return minecraft:{self.s} but that's unecessary
+        return self.s
+
 class JSONRefToken(ResourceLocToken):
     pass
 

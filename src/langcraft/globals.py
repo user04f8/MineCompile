@@ -31,6 +31,7 @@ class Globals:
         self.ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[caller_ref] = {callee_ref for callee_ref in callee_refs}
         self.fun_hooks = {}
         self.resource_hooks = {} # TODO
+        self.names: Dict[str, Set[str]] = {}
 
     def ref_call(self, caller_ref: Ref, callee_ref: Ref, ref_type: RefFlags = RefFlags.NONE):
         if caller_ref in self.ref_graph:
@@ -148,7 +149,7 @@ class Globals:
         if self.get_function_path() not in self.programs:
             self.programs[self.get_function_path()] = Program()
 
-    def gen_name(self) -> str:
+    def gen_function_name(self) -> str:
         for i in range(256):
             candidate_name = 'x' + hex(i)[2:]
             if self.get_function_path(path=[*self.path, candidate_name]) not in self.programs:
@@ -159,6 +160,29 @@ class Globals:
             if self.get_function_path(path=[*self.path, candidate_name]) not in self.programs:
                 return candidate_name
         assert False, 'Ran out of potential candidate names (candidate UUIDs not unique)'
+
+    
+    def gen_name(self, path) -> str:
+        existing_names = self.names.get(path, set())
+        for i in range(256):
+            candidate_name = 'x' + hex(i)[2:]
+            if candidate_name not in existing_names:
+                if path not in self.names:
+                    self.names[path] = {candidate_name}
+                else:
+                    self.names[path].add(candidate_name)
+                return candidate_name
+
+        for i in range(8, 32): # 32 == len(uuid4().hex)
+            candidate_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(i))
+            if candidate_name not in existing_names:
+                if path not in self.names:
+                    self.names[path] = {candidate_name}
+                else:
+                    self.names[path].add(candidate_name)
+                return candidate_name
+        assert False, 'Ran out of potential candidate names (candidate UUIDs not unique)'
+
 
     def add_statement(self, statement):
         if self.blocks == []:

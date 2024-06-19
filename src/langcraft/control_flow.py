@@ -1,18 +1,18 @@
-from typing import Literal, Self, List
+from typing import Literal, Self, List, Tuple
 
 from langcraft.globals import GLOBALS
 
 from .base import Statement, Fun, Block, FunStatement, WithStatement
-from .serialize import ParseErrorToken, CommandNameToken
+from .commands import _ConditionArgType, Score
 from .commands import Condition, RawExecute
 from .debug_utils import *
 from .types import _Days, _Seconds
 
 class If(WithStatement):
-    def __init__(self, condition: Condition | str, add=True):
+    def __init__(self, condition: _ConditionArgType, add=True):
         super().__init__([], add=add)
 
-        self.condition = (Condition(condition) if isinstance(condition, str) else condition)
+        self.condition = condition if isinstance(condition, Condition) else (Condition(condition) if isinstance(condition, str) else Condition(str(condition)))
         self.if_block = Block()
         self.else_block = Block()
 
@@ -86,3 +86,28 @@ class Schedule(WithStatement):
     def __call__(self, *statements: Statement) -> Self:
         Fun()(statement for statement in statements)
         self.cmds = []
+        # TODO
+
+class ScoreTree(WithStatement):
+    def __init__(self, score_key: str, cmds_per_score: int = 1, add=True):
+        super().__init__([], add=add)
+        self.score = Score(objective=score_key)
+        self.cmds_per_score = cmds_per_score
+
+    def __call__(self, *statements: Statement) -> Self:
+        n = len(statements)
+        assert n % self.cmds_per_score == 0
+        grouped_statements = [statements[i:i+self.cmds_per_score] for i in range(0, n, self.cmds_per_score)]
+        self._generate_tree(grouped_statements)
+
+    def _generate_tree(self, grouped_statements, a=0) -> Tuple[Statement]:
+        if len(grouped_statements) == 1:
+            return grouped_statements[0]
+        n2 = len(grouped_statements) // 2
+        with Fun() as f:
+            If(self.score.in_range(a, a + n2 - 1))(
+                *self._generate_tree(grouped_statements[:n2], a)
+            ).Else(
+                *self._generate_tree(grouped_statements[n2:], a + n2)
+            )
+        return (f(),)

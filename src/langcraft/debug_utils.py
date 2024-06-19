@@ -1,7 +1,7 @@
 from termcolor import cprint
 from traceback import print_exc
 
-DEBUG = True
+DEBUG = False
 
 def print_fatal(msg):
     cprint(f'FATAL: {msg}', 'red')
@@ -17,5 +17,6 @@ def print_debug(msg):
     if DEBUG:
         cprint(f'debug: {msg}', 'light_grey')
 
-def print_temp(msg, c='green'):
-    cprint(f'debug: {msg}', c)
+def print_debug_colorful(msg, c='green'):
+    if DEBUG:
+        cprint(f'debug: {msg}', c)

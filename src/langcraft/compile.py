@@ -1,10 +1,11 @@
-from copy import copy, deepcopy
+import json
 from pathlib import Path
+from zipfile import ZipFile
 from random import randint
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .globals import GLOBALS, DATAPACK_ROOT, RefFlags
-from .debug_utils import print_debug, print_warn, print_err, print_temp
+from .debug_utils import print_debug, print_warn, print_err, print_debug_colorful
 from .json_utils import JSON
 from .serialize import REMOVE_TOKEN_SEP, TOKEN_SEP, CommandKeywordToken, Program, serialize_function_name
 from .base import Fun, FunStatement, Namespace, Statement, WithStatement
@@ -34,7 +35,7 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
     source_children = GLOBALS.ref_graph.get(source, {})
     source_program = ref_to_program(source)
 
-    print_temp('|   '*(depth - 1) + ('|---' if depth > 0 else '') + source[1].replace('$root/', ''), 'blue')
+    print_debug_colorful('|   '*(depth - 1) + ('|---' if depth > 0 else '') + source[1].replace('$root/', ''), 'blue')
 
     children_removed = True
     for u in source_children:
@@ -51,7 +52,7 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
         removable = PRUNE_INLINE
         unwrap_single_line = False
         for parent, parent_type in GLOBALS.backwards_ref_graph[source].items():
-            print_temp('|   '*depth + '\~~~' + parent[1].replace('$root/', '') + '   \t' + str(parent_type), 'light_grey')
+            print_debug_colorful('|   '*depth + r'\___' + parent[1].replace('$root/', '') + '   \t' + str(parent_type), 'light_grey')
             parent_program = ref_to_program(parent)
             if not parent_program:
                 if parent[0] not in {'$extern'}:
@@ -59,14 +60,13 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
                 removable = False
             elif not (parent_type ^ RefFlags.NONE):
                 pass  # nothing to do here
-            elif HANDLE_INLINE_EXECUTE and not (parent_type ^ RefFlags.EXECUTE) or not (parent_type ^ RefFlags.WITH_BLOCK):
+            elif PRUNE_INLINE_EXECUTE and not (parent_type ^ RefFlags.EXECUTE) or not (parent_type ^ RefFlags.WITH_BLOCK):
                 n_lines = len(source_program.serialize().split('\n'))
                 if n_lines == 1:
                     unwrap_single_line = True
                 if n_lines > 1:
                     removable = False
             else:
-                print_warn('this ref call is something terribly cursed (currently unhandled by traverse)')
                 removable = False
             
         if removable:
@@ -84,22 +84,38 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
                             cmd._unwrap_statement(source, fun_cmd.tokenize(), _ExecuteContainer=_ExecuteContainer)
                     elif unwrap_single_line and isinstance(cmd, RawExecute):
                         fun_cmd, = source_program.cmds
-                        execute_container: _ExecuteContainer = cmd.cmds[-1]
+                        execute_container: _ExecuteContainer = cmd.get_cmds()[-1]
                         execute_container._block_tokens[1:] = fun_cmd.tokenize()
                     else:
                         print_debug(f'ignoring cmd in unwrap: {cmd} {type(cmd)}')
     else:
         removable = False
 
-    print_temp('|   '*(depth - 1) + ('|---' if depth > 0 else '') + source[1].replace('$root/', ''), ('red' if removable else 'green'))
+    print_debug_colorful('|   '*(depth - 1) + ('|---' if depth > 0 else '') + source[1].replace('$root/', ''), ('red' if removable else 'green'))
     
     if (source_program := ref_to_program(source)):
         source_program.used = not removable
     
     return removable
 
-def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dict[str, Any] = None, jsons: Dict[str, JSON] = GLOBALS.jsons, root_dir: str = '../datapacks/compile_test/data', write=False, color=False, debug=False, optim=True) -> Dict[str, str]:
+def save_files(root_dir: str, write_files: dict):
+    for file_full_path, file_contents in write_files.items():
+        file_full_path = Path(root_dir + file_full_path)
+        file_full_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_full_path, 'w') as f:
+            f.write(file_contents)
+
+def save_files_to_zip(root_dir: str, write_files: dict):
+    zip_file_path = Path(root_dir + '.zip')
+    zip_file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with ZipFile(zip_file_path, 'w') as zipf:
+        for file_path, content in write_files.items():
+            zipf.writestr(file_path, content)
+
+def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dict[str, Any] = None, jsons: Dict[str, JSON] = GLOBALS.jsons, root_dir: str = '../datapacks/compile_test', write=False, color=False, debug=False, optim=True, save_strategy=save_files_to_zip) -> Dict[str, str]:
     root_dir = root_dir.replace('$rand', hex(randint(0, 65535)))
+    data_dir = 'data'
     
     # prune refs
     for hook, hooked_funs in GLOBALS.fun_hooks.items():
@@ -137,28 +153,32 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
         return GLOBALS.get_json_path(namespace, path) in valid_json_refs
 
     out_files: Dict[str, str] = {}
+    write_files: Dict[str, str] = {}
+    write_files['pack.mcmeta'] = json.dumps({
+        "pack": {
+            "description": "Autogenerated by langcraft v0.1",
+            "pack_format": 47
+        }
+    })
+    # pack.mcmeta
 
     # json
     for file_path, json_ in jsons.items():
         out_files[file_path] = json_.serialize(debug=debug, color=color, validate_fun=validate_fun_ref, validate_json=validate_json_ref)
         if write:
-            file_full_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.json'
-            file_full_path = Path(file_full_path)
-            file_full_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(file_full_path, 'w') as f:
-                f.write(out_files[file_path])
-
+            file_full_path = file_path.replace(DATAPACK_ROOT, data_dir) + '.json'
+            write_files[file_full_path] = out_files[file_path]
     # TODO nbt structures
                 
     # function:serialize
     for file_path, program in programs.items():
-        if program.nonempty and program.used:
+        if program.used:
             out_files[file_path] = compile_program(program, color=color, debug=debug, validate_fun=validate_fun_ref, validate_json=validate_json_ref)
             if write:
-                file_full_path = file_path.replace(DATAPACK_ROOT, root_dir) + '.mcfunction'
-                file_full_path = Path(file_full_path)
-                file_full_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(file_full_path, 'w') as f:
-                    f.write(out_files[file_path])
+                file_full_path = file_path.replace(DATAPACK_ROOT, data_dir) + '.mcfunction'
+                write_files[file_full_path] = out_files[file_path]
+
+    if write:
+        save_strategy(root_dir, write_files)
 
     return out_files

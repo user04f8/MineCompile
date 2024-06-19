@@ -2,10 +2,12 @@ from copy import copy
 from enum import Enum
 from typing import Callable, List, Optional, Tuple
 
+from langcraft.serialize import TokensContainer
+
 from .globals import GLOBALS, Ref, RefFlags
 from .debug_utils import *
 from .serialize import *
-from .types import Int32
+from .types import Int32, JSONText
 
 
 class Namespace:
@@ -124,7 +126,7 @@ class Partial:
         self.inner_fun = inner_fun
         
     def __enter__(self):
-        self.inner_fun_name = GLOBALS.gen_name()
+        self.inner_fun_name = GLOBALS.gen_function_name()
         self.f = self.inner_fun(name=self.inner_fun_name).__enter__()
         if isinstance(self.f, tuple):
             self.f, self.f_args = self.f
@@ -153,7 +155,15 @@ class Partial:
 class Statement(TokensRef):
     def __init__(self, cmds: str | Arg | Token | TokensContainer | List[Token] | List[TokensContainer], *, add=True):
         if isinstance(cmds, str):
-            self.cmds = [TokensContainer(RawToken(cmd)) for cmd in cmds.split('\n')]
+            cmds = cmds.strip()
+            if '\n' in cmds:
+                cmds = cmds.split('\n')
+                for cmd in cmds:
+                    Statement(cmd)
+                return
+            if cmds[0] == '/':
+                cmds = cmds[1:]
+            self.cmds = [TokensContainer(RawToken(cmds))]
         elif isinstance(cmds, Arg):
             self.cmds = cmds.get_cmds()
         elif isinstance(cmds, Token):
@@ -184,6 +194,32 @@ class Statement(TokensRef):
     def clear(self):
         if self.idx is not None:
             GLOBALS.clear_cmd(self.idx)
+
+class DebugStatement(Statement):
+    def __init__(self, msg: str = 'here', include_selector=True, scores=[]):
+        # json = {"text": f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}"}
+        json_text = JSONText(f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)})", color='gray')
+        if include_selector:
+            json_text += JSONText(' <') + JSONText(selector="@s", color='aqua') + JSONText('>', color='gray')
+
+        json_text += JSONText(' ' + msg)
+
+        for score in scores:
+            json_text += JSONText(f'\n{score}=') + JSONText(score_name="@s", score_objective=score)
+
+        super().__init__(f'tellraw @a {json_text}')
+
+        # super().__init__(f'tellraw @a {JSONText(text=f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}", hover_event=dict(action="show_text", contents=JSONText(selector="@s")))}')
+
+class Pass(Statement):
+    def __init__(self, add=True):
+        if add:
+            self.idx = GLOBALS.add_statement(self)
+        else:
+            self.idx = None
+
+    def get_cmds(self) -> List[TokensContainer]:
+        return [TokensContainer(RawToken(''))]
 
 class WithStatement(Statement):
     def __init__(self, *args, **kwargs):
@@ -216,20 +252,6 @@ class WithStatement(Statement):
                         assert cmd._block_tokens != []
                         cmd._block_tokens[1:] = single_line_tokens
                         self._unwrapped = True
-
-
-class EmptyStatement(TokensRef):
-    def __init__(self):
-        pass
-
-    def get_cmds(self) -> List[TokensContainer]:
-        return []
-    
-    def tokenize(self) -> List[Token]:
-        return []
-    
-    def clear(self):
-        pass
 
 class Block(Statement):
     def __init__(self, *statements: Statement | str):
@@ -283,7 +305,7 @@ class Fun:
                  ):
         
         if name is None:
-            self.name = GLOBALS.gen_name()
+            self.name = GLOBALS.gen_function_name()
         else:
             self.name = name
         
@@ -303,6 +325,13 @@ class Fun:
         self.ref = None
         self.args = []
         # self.refs = set()
+
+    def __str__(self):
+        """
+        Direct string conversion for easier passing around of functions
+        NOTE: may break refs
+        """
+        return str(FunStatement(self, attach_local_refs=True).tokenize()[0])
     
     @classmethod
     def statement(cls, name: Optional[str] = None, namespace: Optional[str] = None, path: Optional[List[str]] = None) -> FunStatement:
@@ -346,6 +375,7 @@ class Fun:
         self.parent = GLOBALS.fun
         GLOBALS.fun = self
         self.ref = self._gen_ref()
+        # EmptyStatement()
         if self.in_types is None:
             return self
         elif isinstance(self.in_types, ArgType):
@@ -389,7 +419,7 @@ class Fun:
         caller_ref = cls._gen_ref()
         print_debug(f'_wrap_tokens call from {caller_ref}')
 
-        with Pathspace(GLOBALS.gen_name()):
+        with Pathspace(GLOBALS.gen_function_name()):
             for statement in statements:
                 GLOBALS.add_statement(statement)
             print_debug(f'attaching ref to {caller_ref}: anon funct:')
@@ -464,7 +494,45 @@ def metafun(inner):
         return f()
     return wrapper
 
-def public(name: str | Callable, metafun_args: list = [], metafun_kwargs: dict = {}):
+class caching_metafun:
+    def __init__(self):
+        self.caches = {}
+
+    def __call__(self, inner):
+        def wrapper(*args, **kwargs):
+            frozen_kwargs = frozenset(kwargs.items())
+            cache_key = (args, frozen_kwargs)
+            if cache_key not in self.caches:
+                with Fun() as f:
+                    inner(*args, **kwargs)
+                self.caches[cache_key] = f()
+            return self.caches[cache_key]
+        return wrapper
+
+def lambda_metafun(inner):
+    def wrapper(*args, **kwargs):
+        with Fun() as f:
+            inner(*args, **kwargs)
+        return f
+    return wrapper
+
+# EXAMPLE USAGE:
+# @lambda_metafun
+# def lambda_tnt_line():
+#     with Self().at(Pos.angular(forward=8)):
+#         line(
+#             lambda: Statement('summon tnt ~ ~1.8 ~'),
+#             Condition(True),
+#             50
+#         )
+#         Kill(Self())
+
+# @public
+# def tnt_laser():
+#     Statement(f'execute summon marker run {lambda_tnt_line()}')
+
+
+def public(func: str | Callable, metafun_args: list = [], metafun_kwargs: dict = {}):
     """
     Decorator function to make publically available function with name, e.g.
     @public('say_hi')
@@ -477,16 +545,16 @@ def public(name: str | Callable, metafun_args: list = [], metafun_kwargs: dict =
     def say_hi():
         Statement('say hi)
     """
-    if isinstance(name, str):
+    if isinstance(func, str):
         def outer_wrapper(inner: Fun):
-            with PublicFun(name) as f:
+            with PublicFun(func) as f:
                 inner(*metafun_args, **metafun_kwargs)
             f()
         return outer_wrapper
-    inner = name
-    with PublicFun(name) as f:
-        inner(*metafun_args, **metafun_kwargs)
+    with PublicFun(func.__name__) as f:
+        func(*metafun_args, **metafun_kwargs)
     f()
+    return f
 
 def _fun_subclass(fun_class: type):
     def outer_wrapper(inner):

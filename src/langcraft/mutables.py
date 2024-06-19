@@ -1,11 +1,12 @@
-from typing import Literal, Optional
+from typing import Dict, Literal, Optional
 
+from langcraft.json_utils import JSON
 from langcraft.serialize import SelectorToken
 
-from .base import Fun, Statement, Block
-from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, Rot, _Relative, _SingleSelectorBase, Heightmap
+from .base import Fun, Statement, Block, WithStatement
+from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
-from .minecraft_builtins.dimensions import _DimensionLiteral
+from .minecraft_builtins import _DimensionLiteral, _Entities
 
 class _EntityRelative(_Relative):
     def __init__(self, entity):
@@ -23,15 +24,48 @@ def s(**selector_kwargs):
 class Entities(_SelectorBase):
     def __init__(self,
                  selector_type: _SELECTOR_TYPE = 'e',
-                 **selector_kwargs
+                 type: _Entities = None,
+                 name: str = None,
+                 predicate: 'Predicate' = None, # TODO add Predicate type # type: ignore
+                 nbt: JSON = None,
+                 distance: float = None,
+                 x: float = None, y: float = None, z: float = None, # xyz start
+                 dx: float = None, dy: float = None, dz: float = None, # (xyz end) - (xyz start) for bbox
+                 x_rotation: _SliceType = None, y_rotation: _SliceType = None,
+                 scores: Dict[str, _SliceType] = None,
+                 tag: str = None,
+                 team: str = None,
+                 limit: int = None,
+                 sort: Literal['nearest', 'furthest', 'random', 'arbitrary'] = None,
+                 level: _SliceType = None,
+                 gamemode: Literal['spectator', 'survival', 'creative', 'adventure'] = None,
+                 advancements: Dict[ResourceLocation, bool | Dict[str, bool]] = None
                  ):
-        super().__init__(selector_type, **selector_kwargs)
+        scores = None if scores is None else ('{' + ','.join(f'{k}={v}' for k, v in scores.items()) + '}' if isinstance(scores, dict) else scores)
+        super().__init__(selector_type,
+                         name=name,
+                         type=type,
+                         predicate=predicate,
+                         nbt=nbt,
+                         distance=distance,
+                         x=x, y=y, z=z,
+                         dx=dx, dy=dy, dz=dz,
+                         x_rotation=x_rotation, y_rotation=y_rotation,
+                         scores=scores,
+                         tag=tag,
+                         team=team,
+                         limit=limit,
+                         sort=sort,
+                         level=level,
+                         gamemode=gamemode,
+                         advancements=advancements)
         # self.token: SelectorToken  # from super().__init__(...)
         self.as_selector: Literal['self'] | _SelectorBase | None = 'self'
         self.at_target: _SelectorBase | Pos | Rot | None = _SelectorBase()
         self.positioned = self.rotated = self.dimension = None
         self.at_heightmap: Optional[Heightmap] = None
         self.on_relation: Optional[_Relation] = None
+        self.anchor: Optional[Literal['eyes', 'feet']] = None  # default is feet
     
     def as_parent(self):
         self.as_selector = None
@@ -111,6 +145,15 @@ class Entities(_SelectorBase):
         self.on_relation = _Relation('vehicle')
         return self
 
+    @property
+    def eyes(self):
+        self.anchor = 'eyes'
+        return self
+    @property
+    def feet(self):
+        self.anchor = 'feet'
+        return self
+
     def __enter__(self):
         self.execute_as_fun = Fun().__enter__()
         self.old_token = self.token
@@ -120,8 +163,8 @@ class Entities(_SelectorBase):
     # position and rotation
     def teleport(self, loc: Pos = Pos(), *rotation_args):
         Teleport(self, loc, *rotation_args)
-    def propel(self, x: int):
-        Teleport(self, Pos.angular(forward=x))
+    def propel(self, forward: int):
+        Teleport(self, Pos.angular(forward=forward))
     @property
     def pos(self):
         return Pos()
@@ -173,6 +216,8 @@ class Entities(_SelectorBase):
             subs.append(ExecuteSub.as_(self.as_selector))
         if self.dimension:
             subs.append(ExecuteSub.in_(self.dimension))
+        if self.anchor:
+            subs.append(ExecuteSub.anchored(self.anchor))
         if self.at_target:
             if isinstance(self.at_target, _SelectorBase):
                 subs.append(ExecuteSub.at(self.at_target))
@@ -194,3 +239,16 @@ class Self(Entities):
                  **selector_kwargs
                  ):
         super().__init__('s', **selector_kwargs)
+
+class Summon(WithStatement):
+    def __init__(self,    
+                 entity_name: _Entities
+                 ):
+        self.entity_name = entity_name
+        
+    def __enter__(self):
+        super().__enter__()
+        return Self()
+    
+    def __call__(self, *statements: Statement):
+        RawExecute([ExecuteSub.summon(self.entity_name)], list(statements))
