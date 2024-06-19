@@ -9,7 +9,7 @@ def _debug():
     DebugStatement()
 
 
-@metafun
+@caching_metafun()
 def perpendiculars(block_type, thickness: int):
     for i in range(-thickness, thickness+1):
         Statement(f'setblock ^{i} ^ ^ {block_type}')

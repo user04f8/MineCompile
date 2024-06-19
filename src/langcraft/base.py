@@ -494,6 +494,7 @@ def metafun(inner):
         return f()
     return wrapper
 
+
 class caching_metafun:
     def __init__(self):
         self.caches = {}
@@ -505,8 +506,8 @@ class caching_metafun:
             if cache_key not in self.caches:
                 with Fun() as f:
                     inner(*args, **kwargs)
-                self.caches[cache_key] = f()
-            return self.caches[cache_key]
+                self.caches[cache_key] = f
+            return self.caches[cache_key]()
         return wrapper
 
 def lambda_metafun(inner):
