@@ -406,6 +406,10 @@ class Rot(Serializable):
             return f'~{self.yaw if self.yaw else ''} ~{self.pitch if self.pitch else ''}'
         else:
             return f'{self.yaw} {self.pitch}'
+        
+    @classmethod
+    def relative(cls, yaw=0, pitch=0):
+        return cls(yaw=yaw, pitch=pitch, relative=True)
 
 class ResourceLocation(Serializable):
     def __init__(self, namespace, path):

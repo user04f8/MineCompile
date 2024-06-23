@@ -28,6 +28,7 @@ class Entities(_SelectorBase):
                  name: str = None,
                  predicate: 'Predicate' = None, # TODO add Predicate type # type: ignore
                  nbt: JSON = None,
+                 selected_item: JSON = None,
                  distance: float = None,
                  x: float = None, y: float = None, z: float = None, # xyz start
                  dx: float = None, dy: float = None, dz: float = None, # (xyz end) - (xyz start) for bbox
@@ -42,6 +43,9 @@ class Entities(_SelectorBase):
                  advancements: Dict[ResourceLocation, bool | Dict[str, bool]] = None
                  ):
         scores = None if scores is None else ('{' + ','.join(f'{k}={v}' for k, v in scores.items()) + '}' if isinstance(scores, dict) else scores)
+        if selected_item:
+            assert nbt is None
+            nbt = JSON(selected_item=selected_item)
         super().__init__(selector_type,
                          name=name,
                          type=type,

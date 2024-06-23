@@ -12,7 +12,7 @@ class JSON:
 
     __slots__ = ('obj', 'template')
 
-    def __init__(self, template=None, **obj):
+    def __init__(self, *, template=None, **obj):
         self.obj: Dict[str, 'JSON.sub' | List['JSON.sub']]
         self.template: JSONtemplate
 
@@ -29,10 +29,11 @@ class JSON:
             raise AttributeError
         
     def __repr__(self) -> str:
-        return 'JSON(' + ', '.join(f'{key}={val}' for key, val in self.obj.items()) +')'
+        return str(self.obj)
+        # return 'JSON(' + ', '.join(f'{key}={val}' for key, val in self.obj.items()) +')'
     
     def __str__(self) -> str:
-        return str(self.obj)
+        return str(self.obj)  # this technically works but is way too janky TODO make more rigorous
     
     def serialize(self, debug=False, color=False, validate_fun: callable = lambda namespace, path: True, validate_json: callable = lambda namespace, path: True):
         if debug:

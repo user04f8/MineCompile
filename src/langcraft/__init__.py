@@ -9,5 +9,6 @@ from .commands import *
 from .types import *
 from .mutables import *
 
-with OnLoadFun():
-    DebugStatement('langcraft datapack ON', include_selector=False)
+def init():
+    with OnLoadFun():
+        DebugStatement('langcraft datapack ON', include_selector=False)
