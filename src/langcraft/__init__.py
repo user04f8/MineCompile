@@ -8,7 +8,13 @@ from .control_flow import *
 from .commands import *
 from .types import *
 from .mutables import *
+from .dimension import *
 
-def init():
-    with OnLoadFun():
-        DebugStatement('langcraft datapack ON', include_selector=False)
+def init(namespace=None):
+    if namespace:
+        Namespace(namespace).__enter__()
+        with OnLoadFun():
+            DebugStatement(f'langcraft datapack "{namespace}" ON', include_selector=False)
+    else:
+        with OnLoadFun():
+            DebugStatement(f'langcraft datapack ON', include_selector=False)

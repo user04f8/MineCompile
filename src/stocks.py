@@ -9,16 +9,19 @@ mu = np.array(
     [0.103, 0.1, 0.105, 0.11, 0.07, -0.03, 0.05]
 )  # expected returns for each stock
 sigma = np.array(
-    [0.1, 0.125, 0.15,  0.15,  0.4,  0.2, 1e-9]
+    [0.1, 0.125, 0.15,  0.15,  0.3,  0.1, 1e-9]
 )  # volatilities for each stock
 beta = np.array([
-    [1.0,  0.9,  1.2,  0.8,  0.2, -4.8, 1e-9],
+    [1.0,  0.9,  1.2,  0.8,  0.2, -1.8, 1e-9],
     [0.0, -0.1,  0.1,  0.5,  1.0, -1.2, 1e-9],
     [0.1,  0.0,  0.2,  0.4, -1.0, -0.4, 0.0]
 ])  # market factor sensitivities
 num_factors, num_stocks = beta.shape
 S0 = np.array([100, 100, 100, 100, 100, 100, 100])  # initial stock prices
-sigma_M = np.array([0.1, 0.2, 0.3])  # volatilities of the market factors
+sigma_M = np.array([0.1,
+                    0.2,
+                    0.3
+                    ])  # volatilities of the market factors
 
 N = 500  # number of time steps
 num_samples = 10  # number of samples
@@ -49,14 +52,13 @@ if __name__ == '__main__':
     samples = np.array([generate_stock_paths() for _ in range(num_samples)])
 
     strategies = {
-        
         'riskfree': [0., 0., 0., 0., 0., 0., 1.], # min variance
         'safe    ': [0.015, 0.01, 0.006, 0.008, 0.002, 0.005, 0.953], # low variance (1e-5)
         'balanced': [0.377, 0.279, 0.091, 0.194, 0.022, 0.036, 0.], # med variance (0.01)
         'C_tech  ': [0., 0., 0.05, 0.95, 0., 0., 0.],  # high variance (0.05)
         'max_E   ': [0., 0., 0., 1., 0., 0., 0.] # max expectation
-        
     }
+
 
     for strat_name, strat_weights in strategies.items():
         end_vals = [np.dot(strat_weights, stock_paths)[-1] for stock_paths in samples]
@@ -93,6 +95,7 @@ if __name__ == '__main__':
 
     # # Covariance matrix
     # cov_matrix = np.zeros((num_stocks, num_stocks))
+  
     # for i in range(num_stocks):
     #     for j in range(num_stocks):
     #         if i == j:

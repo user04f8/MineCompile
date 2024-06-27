@@ -6,7 +6,7 @@ from termcolor import colored
 from .globals import GLOBALS
 from .debug_utils import print_debug
 from .serialize import ResourceLocToken, Token, SelectorToken, Serializable
-from .minecraft_builtins import _DimensionLiteral, _Entities
+from .minecraft_builtins import _BuiltinDimensionLiteral, _Entities
 
 class JSONText(Serializable):
     def __init__(self, 
@@ -415,8 +415,12 @@ class ResourceLocation(Serializable):
     def __init__(self, namespace, path):
         self.token: ResourceLocToken = ResourceLocToken(namespace, path)
 
+class ExternalResourceLocation(Serializable):
+    def __init__(self, namespace, path):
+        self.token: ResourceLocToken = ResourceLocToken(namespace, path)
+
 class Dimension(ResourceLocation):
-    def __init__(self, dimension_name: _DimensionLiteral):
+    def __init__(self, dimension_name: _BuiltinDimensionLiteral):
         """
         Type for a builtin minecraft dimension
         """

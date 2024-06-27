@@ -6,7 +6,8 @@ from langcraft.serialize import SelectorToken
 from .base import Fun, Statement, Block, WithStatement
 from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
-from .minecraft_builtins import _DimensionLiteral, _Entities
+from .minecraft_builtins import _Entities
+from .dimension import _Dimension
 
 class _EntityRelative(_Relative):
     def __init__(self, entity):
@@ -94,7 +95,7 @@ class Entities(_SelectorBase):
         self.at_heightmap = on
         return self
 
-    def in_(self, dim: Dimension | _DimensionLiteral):
+    def in_(self, dim: Dimension | _Dimension):
         if isinstance(dim, Dimension):
             self.dimension = dim
         else:

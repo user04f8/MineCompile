@@ -29,18 +29,20 @@ class JSON:
             raise AttributeError
         
     def __repr__(self) -> str:
-        return str(self.obj)
-        # return 'JSON(' + ', '.join(f'{key}={val}' for key, val in self.obj.items()) +')'
+        return 'JSON(' + ', '.join(f'{key}={repr(val)}' for key, val in self.obj.items()) +')'
     
-    def __str__(self) -> str:
-        return str(self.obj)  # this technically works but is way too janky TODO make more rigorous
+    # def __str__(self) -> str:
+    #     str_self = '{'
+    #     for key, val in self.obj.items():
+    #         str_self += key + ':' + (json.dumps(val.obj) if isinstance(val, JSON) else json.dumps(val))
+    #     return str(self.obj)  # this technically works but is way too janky TODO make more rigorous
     
     def serialize(self, debug=False, color=False, validate_fun: callable = lambda namespace, path: True, validate_json: callable = lambda namespace, path: True):
         if debug:
             # TODO: potentially add validate_fun/validate_json?
-            return json.dumps(self.obj, indent=2, sort_keys=True)
+            return json.dumps(self.obj, indent=2, sort_keys=True, default=lambda x: x.obj)
         else:
-            return json.dumps(self.obj)
+            return json.dumps(self.obj, default=lambda x: x.obj)
     
     def add(self, json: Self):
         for name, val in json.obj.items():

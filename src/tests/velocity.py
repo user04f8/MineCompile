@@ -1,6 +1,6 @@
 from langcraft import *
 
-Namespace('velocity').__enter__()
+init('velocity')
 
 # def store_vel():
 #     Statement('execute store result storage _internal:set_velocity x double 0.0001 run data get entity @s Motion[0] 10000')
@@ -30,4 +30,28 @@ def summon_fireball():
 
 # TODO scoreboard objectives add x dummy
 
+# dim = JSON(
+#     type="minecraft:overworld",
+#     generator=JSON(
+#         type="minecraft:noise",
+#         settings="minecraft:overworld",
+#         biome_source=JSON(
+#             type="minecraft:fixed",
+#             biome="minecraft:plains"
+#         )
+#     )
+# )
+# GLOBALS.add_json('dimension', 'dim', dim)
+
+CustomDimension.noise(
+    'velocity_testing_range',
+    'overworld',
+    'minecraft:overworld',
+    biome_source=JSON(
+        type='fixed',
+        biome='jagged_peaks'              
+    )
+)
+
 compile_all(write=True, root_dir='../datapacks/velocity')
+display_all()
