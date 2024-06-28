@@ -1,0 +1,1 @@
+execute as @p at @s run function main:x1/x0

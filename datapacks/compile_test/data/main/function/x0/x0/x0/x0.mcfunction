@@ -1,0 +1,1 @@
+execute as @s positioned ^ ^ ^8 run function main:x0/x0/x0/x0/x0

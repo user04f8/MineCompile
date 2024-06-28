@@ -1,0 +1,1 @@
+execute as @e[tag=timed_explosion] at @s run function main:timed_explode/x0

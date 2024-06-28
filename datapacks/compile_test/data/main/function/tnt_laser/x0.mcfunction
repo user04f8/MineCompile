@@ -1,0 +1,1 @@
+execute as @s positioned ^ ^ ^8 run function main:tnt_laser/x0/x0

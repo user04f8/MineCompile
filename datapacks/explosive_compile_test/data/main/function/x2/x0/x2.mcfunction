@@ -1,0 +1,1 @@
+execute as @s positioned ^ ^ ^1 run function main:x2/x0/x2/x0

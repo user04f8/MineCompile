@@ -1,0 +1,1 @@
+execute summon marker run function main:tnt_laser/x0

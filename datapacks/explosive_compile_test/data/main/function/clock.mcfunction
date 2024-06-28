@@ -1,0 +1,1 @@
+schedule function main:clock 1s
