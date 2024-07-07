@@ -234,11 +234,11 @@ class ExecuteSub:
         return cls('anchored', MiscToken(anchor))
 
     @classmethod
-    def as_(cls, selector: _SelectorBase):
+    def as_(cls, selector: SelectorToken):
         return cls('as', selector)
 
     @classmethod
-    def at(cls, selector: _SelectorBase):
+    def at(cls, selector: SelectorToken):
         return cls('at', selector)
 
     @classmethod

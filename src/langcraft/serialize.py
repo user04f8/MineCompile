@@ -1,10 +1,9 @@
+from abc import ABC, abstractmethod
 from typing import Literal, Self, List, Dict
 from uuid import uuid4
 from itertools import product
 
 from termcolor import colored
-
-from langcraft.json_utils import JSON
 
 from .debug_utils import *
 
@@ -13,6 +12,7 @@ _Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "
 ]
 class _Colors:
     # termcolor colors for each token type
+    ERR = 'this throws a runtime error lol'
     DEFAULT = 'white'
     SERIALIZABLE_DEFAULT = 'red'
     RAW = 'red' # hardcoded to be on_color='on_black'
@@ -34,29 +34,32 @@ class _Colors:
     }
 
 
-class Token:
+class Token(ABC):
     COLOR = _Colors.DEFAULT
 
+    @abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
 
     def color_str(self) -> str:
         # noinspection PyTypeChecker
         return colored(self.__str__(), self.COLOR)
-    
+
     def debug_str(self) -> str:
         return self.color_str()
-    
+
     def __format__(self, format_spec: str) -> str:
         return str(self)
-    
-class Serializable(Token):
+
+class Serializable(Token, ABC):
+    @abstractmethod
     def __init__(self):
         self.token: Token
-    
+        raise NotImplementedError()
+
     def __str__(self):
         return self.token.__str__()
-    
+
     def color_str(self) -> str:
         # return self.color_str()
         return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.SERIALIZABLE_DEFAULT))
@@ -64,20 +67,20 @@ class Serializable(Token):
 class RawToken(Token):
     def __init__(self, s: str):
         self.s = s
-    
+
     def __str__(self):
         return self.s
 
     def color_str(self) -> str:
         # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.RAW, on_color='on_black')
-    
+
 class DebugToken(Token):
     COLOR = 'dark_grey'
 
     def __init__(self, s: str):
         self.s = s
-    
+
     def __str__(self):
         return self.s
 
@@ -87,12 +90,13 @@ class JoinToken(Token):
 
     def __str__(self):
         return ''.join(str(t) for t in self.tokens)
-    
+
     def color_str(self) -> str:
         return ''.join(t.color_str() for t in self.tokens)
 
 class StrToken(Token):
     COLOR = _Colors.STR
+
     def __init__(self, s: str):
         self.s = s
 
@@ -101,8 +105,9 @@ class StrToken(Token):
 
 class MiscToken(StrToken):
     COLOR = _Colors.MISC
+
     def __init__(self, obj):
-        self.s = str(obj)
+        super().__init__(str(obj))
 
 class CommandNameToken(StrToken):
     COLOR = _Colors.COMMAND
@@ -115,11 +120,11 @@ class CommandKeywordToken(StrToken):
     COLOR = _Colors.SUBCOMMAND
 
 def serialize_function_name(namespace, path, color=False):
-    s = f'{namespace}:{'/'.join(path)}'
+    s = f'{namespace}:{"/".join(path)}'
     if color:
         # noinspection PyTypeChecker
         return colored(s, _Colors.FUNCTION, attrs=["underline"])
-    
+
     return s
 
 class FunctionToken(Token):
@@ -129,7 +134,7 @@ class FunctionToken(Token):
 
     def __str__(self):
         return f'function {serialize_function_name(self.namespace, self.path)}'
-    
+
     def color_str(self):
         # noinspection PyTypeChecker
         return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
@@ -140,24 +145,22 @@ class TokenError(Exception):
 class ParseErrorToken(Token):
     def __init__(self, err: str):
         print_err(f'parse error {err}')
-        raise err
         self.err = err
 
     def __str__(self):
         return str(self.err)
-    
+
     def debug_str(self):
         return colored(f'$ParseError:{self.err}$', _Colors.ERR, attrs=['bold'])
 
 class SerializeErrorToken(Token):
     def __init__(self, err):
         print_err(f'serialize error {err}')
-        raise err
         self.err = err
 
     def __str__(self):
         return str(self.err)
-    
+
     def debug_str(self):
         return colored(f'$SerializeError:{self.err}$', _Colors.ERR, attrs=['bold'])
 
@@ -168,11 +171,11 @@ COMMAND_SEP = '\n'
 class CommandSepToken(Token):
     def __str__(self):
         return COMMAND_SEP + REMOVE_TOKEN_SEP
-    
+
     def debug_str(self) -> str:
         return colored('¦', 'grey') + COMMAND_SEP + REMOVE_TOKEN_SEP
 
-class Choice(Token):
+class Choice:
     """
     Defines a set of potential values to duplicate a list of tokens over
 
@@ -234,7 +237,7 @@ class SetFlagToken(Token):
 
     def __str__(self):
         return f'data modify {self.flag.serialize()} set value 1'
-    
+
 class CheckFlagToken(Token):
     COLOR = _Colors.FLAG
 
@@ -243,7 +246,7 @@ class CheckFlagToken(Token):
 
     def __str__(self):
         return f'data {self.flag.serialize()}'
-    
+
 class SelectorToken(Token):
     def __init__(self, s: str = 's', **kwargs):
         # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
@@ -286,7 +289,7 @@ class TokensContainer:
 
     def __iter__(self):
         return self.tokens.__iter__()
-    
+
     def tokenize(self):
         return list(self.tokens)
 
@@ -334,14 +337,14 @@ class TokensContainer:
                 return COMMAND_SEP.join(command_choices)
         except Exception as e:
             return SerializeErrorToken(e)
-             
+
     def __str__(self):
         return self.serialize()
 
 class TokensRef:
     def get_cmds(self) -> List[TokensContainer | Self]:
         return []
-    
+
     def single_line_tokenize(self) -> List[Token] | None:
         cmds = self.resolve()
         if len(cmds) > 1:
@@ -354,7 +357,7 @@ class TokensRef:
             tokens += cmd.tokens
             tokens.append(CommandSepToken())
         return tokens[:-1]  # remove trailing CommandSepToken()
-    
+
     def serialize(self, debug=False, **kwargs) -> str | SerializeErrorToken:
         if debug:
             sep = colored(' |\n', 'grey')
@@ -366,7 +369,7 @@ class TokensRef:
             )
         except Exception as err:
             return SerializeErrorToken(err)
-    
+
     def __str__(self):
         return self.serialize()
 
@@ -384,17 +387,17 @@ class Program:
 
     def __iter__(self):
         return self.cmds.__iter__()
-    
+
     @property
     def nonempty(self):
         return any(file_cmd is not None for file_cmd in self)
-    
+
     def __getitem__(self, idx):
         return self.cmds[idx]
-    
+
     def __setitem__(self, idx, new_val: TokensContainer | TokensRef):
         self.cmds[idx] = new_val
-    
+
     def append(self, cmd: TokensContainer | TokensRef):
         self.cmds.append(cmd)
 

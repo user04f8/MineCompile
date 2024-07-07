@@ -1,8 +1,7 @@
 from typing import Dict, Literal, Optional
 
-from langcraft.json_utils import JSON
-from langcraft.serialize import SelectorToken
-
+from .json_utils import JSON
+from .serialize import SelectorToken
 from .base import Fun, Statement, Block, WithStatement
 from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
@@ -27,7 +26,7 @@ class Entities(_SelectorBase):
                  selector_type: _SELECTOR_TYPE = 'e',
                  type: _Entities = None,
                  name: str = None,
-                 predicate: 'Predicate' = None, # TODO add Predicate type # type: ignore
+                 predicate: 'Predicate' = None,  # TODO add Predicate type
                  nbt: JSON = None,
                  selected_item: JSON = None,
                  distance: float = None,
@@ -104,7 +103,7 @@ class Entities(_SelectorBase):
 
     def __call__(self, funct: Fun, mode: Literal['as'] | Literal['at'] | Literal['both'] = 'both'):
         """
-        Call functions as/at this entity outside of a with expression
+        Call functions as/at this entity outside a with expression
         """
         subs = []
         match mode:
@@ -114,7 +113,7 @@ class Entities(_SelectorBase):
                 subs.append(ExecuteSub.at(self.token))
             case 'both':
                 subs.append(ExecuteSub.as_(self.token))
-                subs.append(ExecuteSub.at(_SelectorBase()))  # as <selector> at @s
+                subs.append(ExecuteSub.at(SelectorToken()))  # as <selector> at @s
         RawExecute.conditional_fun(subs, funct)
 
     @property
@@ -250,6 +249,7 @@ class Summon(WithStatement):
                  entity_name: _Entities
                  ):
         self.entity_name = entity_name
+        super().__init__('$summon', add=False)
         
     def __enter__(self):
         super().__enter__()

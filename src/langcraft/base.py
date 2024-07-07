@@ -2,8 +2,7 @@ from copy import copy
 from enum import Enum
 from typing import Callable, List, Optional, Tuple
 
-from langcraft.serialize import TokensContainer
-
+from .serialize import TokensContainer
 from .globals import GLOBALS, Ref, RefFlags
 from .debug_utils import *
 from .serialize import *
