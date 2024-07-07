@@ -12,7 +12,7 @@ _Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "
 ]
 class _Colors:
     # termcolor colors for each token type
-    ERR = 'this throws a runtime error lol'
+    ERR = 'red'
     DEFAULT = 'white'
     SERIALIZABLE_DEFAULT = 'red'
     RAW = 'red' # hardcoded to be on_color='on_black'
@@ -137,7 +137,8 @@ class FunctionToken(Token):
 
     def color_str(self):
         # noinspection PyTypeChecker
-        return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
+        return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + \
+            colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
 
 class TokenError(Exception):
     pass
