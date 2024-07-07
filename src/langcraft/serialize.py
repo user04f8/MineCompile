@@ -72,6 +72,15 @@ class RawToken(Token):
         # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.RAW, on_color='on_black')
     
+class DebugToken(Token):
+    COLOR = 'dark_grey'
+
+    def __init__(self, s: str):
+        self.s = s
+    
+    def __str__(self):
+        return self.s
+
 class JoinToken(Token):
     def __init__(self, *tokens: Token | str):
         self.tokens = [token if isinstance(token, Token) else RawToken(token) for token in tokens]

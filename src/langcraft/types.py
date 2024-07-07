@@ -424,18 +424,16 @@ class Dimension(ResourceLocation):
         """
         Type for a builtin minecraft dimension
         """
-        self.dimension_name = dimension_name
-
         super().__init__('minecraft', [dimension_name])
 
-    def external_ref(self, namespace, dimension_path) -> Self:
+    @classmethod
+    def external_ref(cls, namespace, dimension_path) -> Self:
         """
         Reference a dimension from any namespace
         """
         if isinstance(dimension_path, str):
             dimension_path = dimension_path.split('/')
-        super().__init__(namespace, dimension_path)
-        return self
+        return ExternalResourceLocation(namespace, dimension_path)
     
 class Objective(Serializable):
     def __init__(self, name: str | None = None):

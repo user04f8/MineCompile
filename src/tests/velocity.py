@@ -45,11 +45,11 @@ def summon_fireball():
 
 CustomDimension.noise(
     'velocity_testing_range',
-    'overworld',
-    'minecraft:overworld',
+    type_='overworld',
+    preset='minecraft:overworld',
     biome_source=JSON(
         type='fixed',
-        biome='jagged_peaks'              
+        biome='jagged_peaks'
     )
 )
 

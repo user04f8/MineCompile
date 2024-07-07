@@ -95,11 +95,11 @@ class Entities(_SelectorBase):
         self.at_heightmap = on
         return self
 
-    def in_(self, dim: Dimension | _Dimension):
-        if isinstance(dim, Dimension):
-            self.dimension = dim
-        else:
+    def in_(self, dim: _Dimension):
+        if isinstance(dim, str):
             self.dimension = Dimension(dim)
+        else:
+            self.dimension = dim
         return self
 
     def __call__(self, funct: Fun, mode: Literal['as'] | Literal['at'] | Literal['both'] = 'both'):
@@ -219,10 +219,6 @@ class Entities(_SelectorBase):
             subs.append(ExecuteSub.as_(self))
         elif self.as_selector:
             subs.append(ExecuteSub.as_(self.as_selector))
-        if self.dimension:
-            subs.append(ExecuteSub.in_(self.dimension))
-        if self.anchor:
-            subs.append(ExecuteSub.anchored(self.anchor))
         if self.at_target:
             if isinstance(self.at_target, _SelectorBase):
                 subs.append(ExecuteSub.at(self.at_target))
@@ -230,6 +226,10 @@ class Entities(_SelectorBase):
                 subs.append(ExecuteSub.positioned(self.at_target))
             if isinstance(self.at_target, Rot):
                 subs.append(ExecuteSub.rotated(self.at_target))
+        if self.dimension:
+            subs.append(ExecuteSub.in_(self.dimension))
+        if self.anchor:
+            subs.append(ExecuteSub.anchored(self.anchor))
         if self.positioned:
             subs.append(ExecuteSub.positioned(self.positioned))
         if self.rotated:

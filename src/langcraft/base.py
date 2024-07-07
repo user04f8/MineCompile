@@ -207,7 +207,7 @@ class DebugStatement(Statement):
         for score in scores:
             json_text += JSONText(f'\n{score}=') + JSONText(score_name="@s", score_objective=score)
 
-        super().__init__(f'tellraw @a {json_text}')
+        super().__init__(DebugToken(f'tellraw @a {json_text}'))
 
         # super().__init__(f'tellraw @a {JSONText(text=f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}", hover_event=dict(action="show_text", contents=JSONText(selector="@s")))}')
 
