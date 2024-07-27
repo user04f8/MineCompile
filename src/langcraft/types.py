@@ -5,7 +5,7 @@ from termcolor import colored
 
 from .globals import GLOBALS
 from .debug_utils import print_debug
-from .serialize import ResourceLocToken, Token, SelectorToken, Serializable
+from .serialize import ResourceLocToken, TokenBase, SelectorToken, Serializable
 from .minecraft_builtins import _BuiltinDimensionLiteral, _Entities
 
 class JSONText(Serializable):
@@ -231,7 +231,7 @@ class JSONText(Serializable):
 
         return preview
 
-class Int32(Token):
+class Int32(TokenBase):
     MIN = -2**31
     MAX = 2**31 - 1
     def __init__(self, x: int):

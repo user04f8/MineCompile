@@ -7,18 +7,18 @@ from termcolor import colored
 
 from .debug_utils import *
 
-_Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "cyan", "light_grey",
-    "dark_grey", "light_red", "light_green", "light_yellow", "light_blue", "light_magenta", "light_cyan", "white",
-]
+_Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "cyan", "light_grey", "dark_grey",
+                 "light_red", "light_green", "light_yellow", "light_blue", "light_magenta", "light_cyan", "white"]
+
 class _Colors:
     # termcolor colors for each token type
     ERR = 'red'
     DEFAULT = 'white'
     SERIALIZABLE_DEFAULT = 'red'
-    RAW = 'red' # hardcoded to be on_color='on_black'
-    COMMAND = 'light_magenta' # hardcoded to be bold
+    RAW = 'red'  # hardcoded to be on_color='on_black'
+    COMMAND = 'light_magenta'  # hardcoded to be bold
     SUBCOMMAND = 'light_magenta'
-    FUNCTION = 'light_cyan' # hardcoded to be underlined
+    FUNCTION = 'light_cyan'  # hardcoded to be underlined
     STR = 'green'
     MISC = 'light_grey'
     FLAG = 'dark_grey'
@@ -34,7 +34,7 @@ class _Colors:
     }
 
 
-class Token(ABC):
+class TokenBase(ABC):
     COLOR = _Colors.DEFAULT
 
     @abstractmethod
@@ -51,20 +51,24 @@ class Token(ABC):
     def __format__(self, format_spec: str) -> str:
         return str(self)
 
-class Serializable(Token, ABC):
+
+class Serializable(TokenBase, ABC):
     @abstractmethod
     def __init__(self):
-        self.token: Token
+        self.token: TokenBase
         raise NotImplementedError()
 
     def __str__(self):
+        # noinspection PyUnresolvedReferences
         return self.token.__str__()
 
     def color_str(self) -> str:
         # return self.color_str()
+        # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.SERIALIZABLE.get(self.__class__.__name__, _Colors.SERIALIZABLE_DEFAULT))
 
-class RawToken(Token):
+
+class RawToken(TokenBase):
     def __init__(self, s: str):
         self.s = s
 
@@ -75,7 +79,8 @@ class RawToken(Token):
         # noinspection PyTypeChecker
         return colored(self.__str__(), _Colors.RAW, on_color='on_black')
 
-class DebugToken(Token):
+
+class DebugToken(TokenBase):
     COLOR = 'dark_grey'
 
     def __init__(self, s: str):
@@ -84,9 +89,10 @@ class DebugToken(Token):
     def __str__(self):
         return self.s
 
-class JoinToken(Token):
-    def __init__(self, *tokens: Token | str):
-        self.tokens = [token if isinstance(token, Token) else RawToken(token) for token in tokens]
+
+class JoinToken(TokenBase):
+    def __init__(self, *tokens: TokenBase | str):
+        self.tokens = [token if isinstance(token, TokenBase) else RawToken(token) for token in tokens]
 
     def __str__(self):
         return ''.join(str(t) for t in self.tokens)
@@ -94,7 +100,8 @@ class JoinToken(Token):
     def color_str(self) -> str:
         return ''.join(t.color_str() for t in self.tokens)
 
-class StrToken(Token):
+
+class StrToken(TokenBase):
     COLOR = _Colors.STR
 
     def __init__(self, s: str):
@@ -103,11 +110,13 @@ class StrToken(Token):
     def __str__(self):
         return self.s
 
+
 class MiscToken(StrToken):
     COLOR = _Colors.MISC
 
     def __init__(self, obj):
         super().__init__(str(obj))
+
 
 class CommandNameToken(StrToken):
     COLOR = _Colors.COMMAND
@@ -116,8 +125,10 @@ class CommandNameToken(StrToken):
         # noinspection PyTypeChecker
         return colored(self.__str__(), self.COLOR, attrs=['bold'])
 
+
 class CommandKeywordToken(StrToken):
     COLOR = _Colors.SUBCOMMAND
+
 
 def serialize_function_name(namespace, path, color=False):
     s = f'{namespace}:{"/".join(path)}'
@@ -127,7 +138,8 @@ def serialize_function_name(namespace, path, color=False):
 
     return s
 
-class FunctionToken(Token):
+
+class FunctionToken(TokenBase):
     def __init__(self, namespace: str, path: List[str]):
         self.namespace = namespace
         self.path = path
@@ -140,10 +152,12 @@ class FunctionToken(Token):
         return colored('function', _Colors.COMMAND, attrs=["bold"]) + ' ' + \
             colored(serialize_function_name(self.namespace, self.path), _Colors.FUNCTION, attrs=["underline"])
 
+
 class TokenError(Exception):
     pass
 
-class ParseErrorToken(Token):
+
+class ParseErrorToken(TokenBase):
     def __init__(self, err: str):
         print_err(f'parse error {err}')
         self.err = err
@@ -152,9 +166,11 @@ class ParseErrorToken(Token):
         return str(self.err)
 
     def debug_str(self):
+        # noinspection PyTypeChecker
         return colored(f'$ParseError:{self.err}$', _Colors.ERR, attrs=['bold'])
 
-class SerializeErrorToken(Token):
+
+class SerializeErrorToken(TokenBase):
     def __init__(self, err):
         print_err(f'serialize error {err}')
         self.err = err
@@ -163,18 +179,22 @@ class SerializeErrorToken(Token):
         return str(self.err)
 
     def debug_str(self):
+        # noinspection PyTypeChecker
         return colored(f'$SerializeError:{self.err}$', _Colors.ERR, attrs=['bold'])
+
 
 TOKEN_SEP = ' '
 REMOVE_TOKEN_SEP = '$remove_token_sep'
 COMMAND_SEP = '\n'
 
-class CommandSepToken(Token):
+
+class CommandSepToken(TokenBase):
     def __str__(self):
         return COMMAND_SEP + REMOVE_TOKEN_SEP
 
     def debug_str(self) -> str:
         return colored('¦', 'grey') + COMMAND_SEP + REMOVE_TOKEN_SEP
+
 
 class Choice:
     """
@@ -192,8 +212,9 @@ class Choice:
         [e, f]
     ]
     """
-    def __init__(self, *choices: Token | List[Token], ident=None):
-        self.choices = tuple(([choice] if isinstance(choice, Token) else choice) for choice in choices)
+
+    def __init__(self, *choices: TokenBase | List[TokenBase], ident=None):
+        self.choices = tuple(([choice] if isinstance(choice, TokenBase) else choice) for choice in choices)
         self.ident = ident
         if self.ident is None:
             self.uuid = uuid4()
@@ -204,12 +225,14 @@ class Choice:
         else:
             return hash(self.ident)
 
-class ArgToken(Token):
+
+class ArgToken(TokenBase):
     def __init__(self, ident: int):
         self.ident = ident
 
     def __str__(self):
         return f'$TODO $arg:{self.ident}'  # TODO
+
 
 class Flag:
     def __init__(self, name=None, resource_loc='_internal:flags'):
@@ -221,7 +244,8 @@ class Flag:
     def serialize(self):
         return f'storage {self.resource_loc} {self.name}'
 
-class ResetFlagToken(Token):
+
+class ResetFlagToken(TokenBase):
     COLOR = _Colors.FLAG
 
     def __init__(self, flag: Flag):
@@ -230,7 +254,8 @@ class ResetFlagToken(Token):
     def __str__(self):
         return f'data remove {self.flag.serialize()}'
 
-class SetFlagToken(Token):
+
+class SetFlagToken(TokenBase):
     COLOR = _Colors.FLAG
 
     def __init__(self, flag: Flag):
@@ -239,7 +264,8 @@ class SetFlagToken(Token):
     def __str__(self):
         return f'data modify {self.flag.serialize()} set value 1'
 
-class CheckFlagToken(Token):
+
+class CheckFlagToken(TokenBase):
     COLOR = _Colors.FLAG
 
     def __init__(self, flag: Flag):
@@ -248,7 +274,8 @@ class CheckFlagToken(Token):
     def __str__(self):
         return f'data {self.flag.serialize()}'
 
-class SelectorToken(Token):
+
+class SelectorToken(TokenBase):
     def __init__(self, s: str = 's', **kwargs):
         # TODO structure kwargs by https://minecraft.wiki/w/Target_selectors
         self.s = s
@@ -260,7 +287,8 @@ class SelectorToken(Token):
         else:
             return f'@{self.s}[{",".join(f"{key}={val}" for key, val in self.kwargs.items())}]'
 
-class ResourceLocToken(Token):
+
+class ResourceLocToken(TokenBase):
     def __init__(self, namespace: str, path: List[str]):
         self.namespace = namespace
         self.path = path
@@ -268,16 +296,22 @@ class ResourceLocToken(Token):
     def __str__(self):
         return self.namespace + ':' + '/'.join(p for p in self.path)
 
-class BuiltinResourceToken(Token):
+
+class BuiltinResourceToken(TokenBase):
     def __init__(self, s: str):
         self.s = s
 
     def __str__(self):
-        # could return minecraft:{self.s} but that's unecessary
+        # could return minecraft:{self.s} but that's unnecessary
         return self.s
+
 
 class JSONRefToken(ResourceLocToken):
     pass
+
+
+Token = TokenBase | Choice
+
 
 class TokensContainer:
     def __init__(self, *tokens: Token):
@@ -294,8 +328,9 @@ class TokensContainer:
     def tokenize(self):
         return list(self.tokens)
 
-    def serialize(self, debug=False, color=False, force_color=None, validate_fun=lambda namespace, path: True, validate_json=lambda namespace, path: True) -> str | SerializeErrorToken:
-        def token_serialize(t: Token) -> str:
+    def serialize(self, debug=False, color=False, force_color=None, validate_fun=lambda namespace, path: True,
+                  validate_json=lambda namespace, path: True) -> str | SerializeErrorToken:
+        def token_serialize(t: TokenBase) -> str:
             if isinstance(t, FunctionToken):
                 if not validate_fun(t.namespace, t.path):
                     return colored(str(t), 'red', 'on_black', attrs=['blink', 'bold'])
@@ -315,9 +350,9 @@ class TokensContainer:
         try:
             assignments = {
                 choice.ident: choice.choices
-                    for choice in set(
-                        choice for choice in self if isinstance(choice, Choice)
-                    )
+                for choice in set(
+                    choice for choice in self if isinstance(choice, Choice)
+                )
             }
 
             combinations = list(product(*assignments.values()))
@@ -328,10 +363,13 @@ class TokensContainer:
                 for token in self:
                     if isinstance(token, Choice):
                         index = list(assignments.keys()).index(token.ident)
-                        command_choice += [token_serialize(token) for token in combination[index]]
-                    else:
+                        command_choice += [token_serialize(token_) for token_ in combination[index]]
+                    elif isinstance(token, TokenBase):
                         command_choice.append(token_serialize(token))
-                command_choices.append(('  ' if debug and len(combinations) > 1 else '') + TOKEN_SEP.join(command_choice))
+                    else:
+                        raise TypeError(f"Invalid token type: {type(token)}")
+                command_choices.append(
+                    ('  ' if debug and len(combinations) > 1 else '') + TOKEN_SEP.join(command_choice))
             if debug:
                 return colored(' |\n', 'grey').join(command_choices)
             else:
@@ -342,17 +380,18 @@ class TokensContainer:
     def __str__(self):
         return self.serialize()
 
-class TokensRef:
-    def get_cmds(self) -> List[TokensContainer | Self]:
-        return []
 
-    def single_line_tokenize(self) -> List[Token] | None:
+class TokensRef(ABC):
+    def get_cmds(self) -> List[TokensContainer | Self]:
+        raise NotImplementedError()
+
+    def single_line_tokenize(self) -> List[TokenBase] | None:
         cmds = self.resolve()
         if len(cmds) > 1:
             return None
         return cmds[0].tokenize()
 
-    def tokenize(self) -> List[Token]:
+    def tokenize(self) -> List[TokenBase]:
         tokens = []
         for cmd in self.resolve():
             tokens += cmd.tokens
@@ -375,8 +414,10 @@ class TokensRef:
         return self.serialize()
 
     def resolve(self) -> List[TokensContainer]:
-        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd])]
+        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in
+                         (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd])]
         return resolved_cmds
+
 
 class Program:
     def __init__(self, *cmds: TokensContainer | TokensRef):
@@ -406,12 +447,12 @@ class Program:
         """
         Removes self.cmds[i] and inserts cmds at index i
         """
-        self.cmds = self.cmds[:i] + cmds + self.cmds[i+1:]
+        self.cmds = self.cmds[:i] + cmds + self.cmds[i + 1:]
 
     def optimize(self):
         i = 0
         while i < len(self.cmds) - 1:
-            cmd0, cmd1 = self.cmds[i], self.cmds[i+1]
+            cmd0, cmd1 = self.cmds[i], self.cmds[i + 1]
             try:
                 if hasattr(cmd0, 'join_with_cmd'):
                     cmd01 = cmd0.join_with_cmd(cmd1)
@@ -422,7 +463,7 @@ class Program:
                 if cmd01:
                     print_debug(f'joined cmds: {cmd0} || {cmd1} --> {cmd01}')
                     self.cmds[i] = cmd01
-                    del self.cmds[i+1]
+                    del self.cmds[i + 1]
                     i -= 1
             except TypeError as e:
                 print_warn(f'invalid types for optim: {e}')
@@ -434,7 +475,7 @@ class Program:
         else:
             sep = COMMAND_SEP
         return ('# UNUSED\n' if debug and not self.used else '') + sep.join(
-                    s for s in (
-                        cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None
-                    ) if s != ''
-                )
+            s for s in (
+                cmd.serialize(debug=debug, **kwargs) for cmd in self if cmd is not None
+            ) if s != ''
+        )

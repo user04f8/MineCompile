@@ -1,14 +1,14 @@
-import json
 from pathlib import Path
 from zipfile import ZipFile
 from random import randint
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Tuple, cast
+import json
 
 from .globals import GLOBALS, DATAPACK_ROOT, RefFlags
-from .debug_utils import print_debug, print_warn, print_err, print_debug_colorful
+from .debug_utils import print_debug, print_warn, print_debug_colorful
 from .json_utils import JSON
-from .serialize import REMOVE_TOKEN_SEP, TOKEN_SEP, CommandKeywordToken, Program, serialize_function_name
-from .base import Fun, FunStatement, Namespace, Statement, WithStatement
+from .serialize import REMOVE_TOKEN_SEP, TOKEN_SEP, Program, serialize_function_name
+from .base import Fun, FunStatement, Namespace, WithStatement
 from .commands import _ExecuteContainer, RawExecute
 
 PRUNE_INLINE = False  # TODO need to update optim
@@ -23,15 +23,19 @@ def compile_program(program: Program, **serialize_kwargs):
 Ref = Tuple[str, str]
 
 def ref_to_program(ref: Ref) -> Program | None:
-	match ref:
-		case ('function', fun_path):
-			return GLOBALS.programs.get(fun_path)
-	return None
+    match ref:
+        case ('function', fun_path):
+            return GLOBALS.programs.get(fun_path)
+    return None
 
 def fun_path_to_ref(fun_path: str):
-	return ('function', fun_path)
+    return 'function', fun_path
 
-def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set = set(), depth=0):    
+def traverse(source: Ref, discovered=None, discovered_and_removed=None, depth=0):
+    if discovered_and_removed is None:
+        discovered_and_removed = set()
+    if discovered is None:
+        discovered = set()
     source_children = GLOBALS.ref_graph.get(source, {})
     source_program = ref_to_program(source)
 
@@ -81,10 +85,22 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
                     elif unwrap_single_line and isinstance(cmd, WithStatement):
                         if not cmd._unwrapped:
                             fun_cmd, = source_program.cmds
-                            cmd._unwrap_statement(source, fun_cmd.tokenize(), _ExecuteContainer=_ExecuteContainer)
+                            # cmd._unwrap_statement(source, fun_cmd.tokenize(), _ExecuteContainer=_ExecuteContainer)
+                            single_line_tokens = fun_cmd.tokenize()
+                            for cmd_ in cmd.cmds:
+                                if isinstance(cmd_, _ExecuteContainer):
+                                    fun_token = cmd_.get_fun_token()
+                                    if fun_token is None:
+                                        print_warn(f'already unwrapped {source}')
+                                    else:
+                                        fun_path = GLOBALS.get_function_path(fun_token.namespace, fun_token.path)
+                                        if fun_path == source[1]:
+                                            assert cmd_._block_tokens != []
+                                            cmd_._block_tokens[1:] = single_line_tokens
+                                            cmd._unwrapped = True
                     elif unwrap_single_line and isinstance(cmd, RawExecute):
                         fun_cmd, = source_program.cmds
-                        execute_container: _ExecuteContainer = cmd.get_cmds()[-1]
+                        execute_container: _ExecuteContainer = cast(cmd.get_cmds()[-1], _ExecuteContainer)
                         execute_container._block_tokens[1:] = fun_cmd.tokenize()
                     else:
                         print_debug(f'ignoring cmd in unwrap: {cmd} {type(cmd)}')
@@ -93,7 +109,7 @@ def traverse(source: Ref, discovered: set = set(), discovered_and_removed: set =
 
     print_debug_colorful('|   '*(depth - 1) + ('|---' if depth > 0 else '') + source[1].replace('$root/', ''), ('red' if removable else 'green'))
     
-    if (source_program := ref_to_program(source)):
+    if source_program := ref_to_program(source):
         source_program.used = not removable
     
     return removable
@@ -113,10 +129,19 @@ def save_files_to_zip(root_dir: str, write_files: dict):
         for file_path, content in write_files.items():
             zipf.writestr(file_path, content)
 
-def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dict[str, Any] = None, jsons: Dict[str, JSON] = GLOBALS.jsons, root_dir: str = '../datapacks/compile_test', write=False, color=False, debug=False, optim=True, save_strategy=save_files_to_zip) -> Dict[str, str]:
+def compile_all(programs: Dict[str, Program] = GLOBALS.programs,
+                structures: Dict[str, Any] = None,
+                jsons: Dict[str, JSON] = GLOBALS.jsons,
+                root_dir: str = '../datapacks/compile_test',
+                write=False,
+                color=False,
+                debug=False,
+                optim=True,
+                save_strategy=save_files_to_zip
+                ) -> Dict[str, str]:
     root_dir = root_dir.replace('$rand', hex(randint(0, 65535)))
     data_dir = 'data'
-    
+
     # prune refs
     for hook, hooked_funs in GLOBALS.fun_hooks.items():
         hook: str
@@ -133,7 +158,7 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
 
         for caller, callees in GLOBALS.ref_graph.items():
             match caller:
-                case ('$extern', extern_call):
+                case ('$extern', _):
                     for callee in callees:
                         traverse(callee)
         
@@ -144,7 +169,7 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
             program.used = True
 
     valid_fun_refs = [path for path, program in programs.items() if program.used]
-    valid_json_refs = [path for path, json in jsons.items()]
+    valid_json_refs = [path for path, _ in jsons.items()]
 
     def validate_fun_ref(namespace: str, path: List[str]):
         return GLOBALS.get_function_path(namespace, path) in valid_fun_refs
@@ -153,13 +178,12 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs, structures: Dic
         return GLOBALS.get_json_path(namespace, path) in valid_json_refs
 
     out_files: Dict[str, str] = {}
-    write_files: Dict[str, str] = {}
-    write_files['pack.mcmeta'] = json.dumps({
+    write_files: Dict[str, str] = {'pack.mcmeta': json.dumps({
         "pack": {
             "description": "Autogenerated by langcraft v0.1",
             "pack_format": 47
         }
-    })
+    })}
     # pack.mcmeta
 
     # json

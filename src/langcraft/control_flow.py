@@ -1,11 +1,7 @@
 from typing import Literal, Self, List, Tuple
 
-from langcraft.globals import GLOBALS
-
 from .base import Statement, Fun, Block, FunStatement, WithStatement
-from .commands import _ConditionArgType, Score
-from .commands import Condition, RawExecute
-from .debug_utils import *
+from .commands import Condition, RawExecute, _ConditionArgType, Score
 from .types import _Days, _Seconds
 
 class If(WithStatement):

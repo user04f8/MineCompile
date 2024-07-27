@@ -1,10 +1,9 @@
+from __future__ import annotations
 from copy import copy
 from enum import Enum
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Optional, Tuple, overload
 
-from .serialize import TokensContainer
-from .globals import GLOBALS, Ref, RefFlags
-from .debug_utils import *
+from .globals import GLOBALS, RefFlags
 from .serialize import *
 from .types import Int32, JSONText
 
@@ -50,7 +49,7 @@ class ArgType(Enum):
             # case tuple(xs) | list(xs):
             #     self.type = SimpleValType.TUPLE
             #     self.types = tuple(ValType(x) for x in xs)
-            case int(x):
+            case int(_):
                 return ArgType.INT
             case _:
                 return ArgType.UNKOWN
@@ -91,9 +90,9 @@ class Args:
         self.args = [Arg(i, type_) for i, type_ in enumerate(fun.in_types)]
 
     def __iter__(self):
-            return self.args.__iter__()
+        return self.args.__iter__()
 
-class MetaArg(Token):
+class MetaArg(TokenBase):
     def __init__(self, id: int):
         self.id = id
 
@@ -121,28 +120,36 @@ class MetaArgs:
         return arg
 
 class Partial:
-    def __init__(self, inner_fun: Callable[[str], Callable]):
+    def __init__(self, inner_fun: Callable[[str], Fun]):
+        """
+        inner_fun: a callable given some assignment of name to a string which returns a Fun
+        """
         self.inner_fun = inner_fun
         
     def __enter__(self):
         self.inner_fun_name = GLOBALS.gen_function_name()
-        self.f = self.inner_fun(name=self.inner_fun_name).__enter__()
+        self.f = self.inner_fun(self.inner_fun_name).__enter__()  # name=self.inner_fun_name
         if isinstance(self.f, tuple):
             self.f, self.f_args = self.f
         else:
             self.f_args = None
         self.meta_args = MetaArgs()
+
         def h(*meta_args):
             for meta_arg, arg in zip(self.meta_args.args, meta_args):
                 meta_arg.assign(arg)
+
             def g(*args):
-                self.inner_fun(name=self.inner_fun_name)(*args)
+                self.inner_fun(self.inner_fun_name)(*args)  # name=self.inner_fun_name
+
             return g
+
         def get_args(n: int = None):
             if n is None:
                 return next(self.meta_args)
             else:
                 return [next(self.meta_args) for _ in range(n)]
+
         if self.f_args:
             return (h, self.f_args), get_args
         else:
@@ -152,7 +159,7 @@ class Partial:
         self.f.__exit__()
 
 class Statement(TokensRef):
-    def __init__(self, cmds: str | Arg | Token | TokensContainer | List[Token] | List[TokensContainer], *, add=True):
+    def __init__(self, cmds: str | Arg | TokenBase | TokensContainer | List[TokenBase] | List[TokensContainer], *, add=True):
         if isinstance(cmds, str):
             cmds = cmds.strip()
             if '\n' in cmds:
@@ -165,14 +172,14 @@ class Statement(TokensRef):
             self.cmds = [TokensContainer(RawToken(cmds))]
         elif isinstance(cmds, Arg):
             self.cmds = cmds.get_cmds()
-        elif isinstance(cmds, Token):
+        elif isinstance(cmds, TokenBase):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
             self.cmds = [cmds]
         elif isinstance(cmds, List | Tuple):
             if len(cmds) == 0:
                 self.cmds = []
-            elif isinstance(cmds[0], Token):
+            elif isinstance(cmds[0], TokenBase):
                 self.cmds = [TokensContainer(*cmds)]
             elif isinstance(cmds[0], TokensContainer):
                 self.cmds = cmds
@@ -195,7 +202,7 @@ class Statement(TokensRef):
             GLOBALS.clear_cmd(self.idx)
 
 class DebugStatement(Statement):
-    def __init__(self, msg: str = 'here', include_selector=True, scores=[]):
+    def __init__(self, msg: str = 'here', include_selector=True, scores=()):
         # json = {"text": f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}"}
         json_text = JSONText(f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)})", color='gray')
         if include_selector:
@@ -208,8 +215,8 @@ class DebugStatement(Statement):
 
         super().__init__(DebugToken(f'tellraw @a {json_text}'))
 
-        # super().__init__(f'tellraw @a {JSONText(text=f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}", hover_event=dict(action="show_text", contents=JSONText(selector="@s")))}')
 
+# noinspection PyMissingConstructor
 class Pass(Statement):
     def __init__(self, add=True):
         if add:
@@ -220,11 +227,11 @@ class Pass(Statement):
     def get_cmds(self) -> List[TokensContainer]:
         return [TokensContainer(RawToken(''))]
 
-class WithStatement(Statement):
+class WithStatement(Statement, ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._unwrapped = False
-        GLOBALS.in_with = True # ensure inline __call__s still generate refs properly
+        GLOBALS.in_with = True  # ensure inline __call__s still generate refs properly
 
     def __enter__(self):
         GLOBALS.blocks.append(self)
@@ -233,26 +240,16 @@ class WithStatement(Statement):
     def add_statement(self, statement: Statement):
         self.args_from_global.append(statement)
 
+    def __call__(self, *args):
+        raise NotImplementedError()
+
     def __exit__(self, *args):
         GLOBALS.blocks.pop()
         GLOBALS.in_with = False
-        self(*self.args_from_global)
-        
+        self(*self.args_from_global)  # self.__call__(...)
 
-    def _unwrap_statement(self, ref: Ref, single_line_tokens: List[Token], _ExecuteContainer: type):
-        for cmd in self.cmds:
-            if isinstance(cmd, _ExecuteContainer):
-                fun_token = cmd.get_fun_token()
-                if fun_token is None:
-                    print_warn(f'already unwrapped {ref}')
-                else:
-                    fun_path = GLOBALS.get_function_path(fun_token.namespace, fun_token.path)
-                    if fun_path == ref[1]:
-                        assert cmd._block_tokens != []
-                        cmd._block_tokens[1:] = single_line_tokens
-                        self._unwrapped = True
 
-class Block(Statement):
+class Block(TokensRef):
     def __init__(self, *statements: Statement | str):
         self.statements = [(Statement(statement) if isinstance(statement, str) else statement) for statement in statements]
 
@@ -271,6 +268,7 @@ class Block(Statement):
             statement.clear()
 
 class FunStatement(Statement):
+    # noinspection PyMissingConstructor
     def __init__(self, fun: 'Fun', attach_local_refs=False, ref_type: RefFlags = RefFlags.NONE):
         self.fun = fun
         self.cmds = [TokensContainer(FunctionToken(self.fun.namespace, self.fun.path))]
@@ -311,7 +309,7 @@ class Fun:
         self.namespace = GLOBALS.namespace
         if self.name == '$self':
             # reference self
-            self.path = GLOBALS.path
+            self.path = copy(GLOBALS.path)  # need to copy or else since path is a List object this will be a reference
         else:
             self.path = GLOBALS.path + [self.name]
         
@@ -349,10 +347,6 @@ class Fun:
 
     def __class_getitem__(self, types: type | Tuple[type]):
         self.out_types = types
-        # if isinstance(types, tuple):
-        #     self.out_types = tuple(ArgType.from_type(t) for t in types)
-        # else:
-        #     self.out_types = ArgType.from_type(types)
         return self
 
     def __getitem__(self, types: type | Tuple[type]):
@@ -368,8 +362,6 @@ class Fun:
         GLOBALS.enter_path(self.name)
         assert self.namespace == GLOBALS.namespace
         assert self.path == GLOBALS.path
-        # self.namespace = GLOBALS.namespace
-        # self.path = copy(GLOBALS.path)  # need to copy or else since path is a List object this will be a reference
 
         self.parent = GLOBALS.fun
         GLOBALS.fun = self
@@ -398,7 +390,7 @@ class Fun:
     def __call__(self, *args) -> FunStatement:
         if self.inline:
             if self.inline_block is None:
-                print_debug(f'deprecated inline Fun {self.namespace}:{'/'.join(self.path)}')
+                print_debug(f'deprecated inline Fun {self.namespace}:{"/".join(self.path)}')
                 self.inline_block = Block(*args)
                 self.inline_block.clear()
 
@@ -408,7 +400,7 @@ class Fun:
             else:
                 raise ValueError('Function block already assigned')
         else:
-            print_debug(f'implicit function->statement call {self.namespace}:{'/'.join(self.path)}')
+            print_debug(f'implicit function->statement call {self.namespace}:{"/".join(self.path)}')
             fun_statement = FunStatement(self)
             fun_statement.__call__(*args)
             return fun_statement
@@ -457,18 +449,6 @@ class PublicFun(Fun):
         self._attach_hook('$public')
         return out
 
-class TickingFun(Fun):
-    def __enter__(self):
-        out = super().__enter__()
-        self._attach_hook('#minecraft:tick')
-        return out
-
-class OnLoadFun(Fun):
-    def __enter__(self):
-        out = super().__enter__()
-        self._attach_hook('#minecraft:load')
-        return out
-
 def fun(inner):
     """
     Decorator function to convert functions into Fun, e.g.:
@@ -480,6 +460,34 @@ def fun(inner):
         inner()
     return f
 
+class TickingFun(Fun):
+    def __enter__(self):
+        out = super().__enter__()
+        self._attach_hook('#minecraft:tick')
+        return out
+
+def ticking(f):
+    """
+    Decorator for use with @fun
+    """
+    f._attach_hook('#minecraft:tick')
+    return f
+
+class OnLoadFun(Fun):
+    def __enter__(self):
+        out = super().__enter__()
+        self._attach_hook('#minecraft:load')
+        return out
+
+def on_load(f):
+    """
+    Decorator for use with @fun
+    """
+    f._attach_hook('#minecraft:load')
+    return f
+
+
+# noinspection PyPep8Naming
 class metafun:
     def __init__(self):
         self.caches: Dict[Tuple[tuple, frozenset], Fun] = {}
@@ -487,9 +495,38 @@ class metafun:
     def __call__(self, inner):
         """
         Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
-        @metafun
+        @metafun()
         def say(x):
             Statement(f'say {x}')
+        """
+        def wrapper(*args, __lambda__=False, **kwargs):
+            frozen_kwargs = frozenset(kwargs.items())
+            cache_key = (args, frozen_kwargs) # could include inner.__name__
+            if cache_key not in self.caches:
+                with Fun() as f:
+                    inner(*args, **kwargs)
+                self.caches[cache_key] = f
+            if __lambda__:
+                return self.caches[cache_key]
+            else:
+                return self.caches[cache_key]()
+        return wrapper
+
+# noinspection PyPep8Naming
+class lambda_metafun:
+    def __init__(self):
+        self.caches: Dict[Tuple[tuple, frozenset], Fun] = {}
+
+    def __call__(self, inner):
+        """
+        Decorator function to convert functions into re-referencable Fun supporting arguments, e.g.:
+        @lambda_metafun()
+        def say(x):
+            Statement(f'say {x}')
+
+        @public
+        def main():
+            Statement(f'execute as @a run {say("hi")}')
         """
         def wrapper(*args, **kwargs):
             frozen_kwargs = frozenset(kwargs.items())
@@ -498,26 +535,12 @@ class metafun:
                 with Fun() as f:
                     inner(*args, **kwargs)
                 self.caches[cache_key] = f
-            f_stat = self.caches[cache_key]()
-            return f_stat
+            return self.caches[cache_key]
+            # f_stat = self.caches[cache_key]()
+            # return f_stat
         return wrapper
 
-# def metafun(inner):
-#     """
-#     Decorator function to convert functions into meta-Fun supporting arguments, e.g.:
-#     @metafun
-#     def say(x):
-#         Statement(f'say {x}')
-#     """
-#     return _global_metafun_cache(inner)
-
-    # def wrapper(*args, **kwargs):  # non-cached behavior
-    #     with Fun() as f:
-    #         inner(*args, **kwargs)
-    #     return f()
-    # return wrapper
-
-def lambda_metafun(inner):
+def simple_lambda_metafun(inner):
     def wrapper(*args, **kwargs):
         with Fun() as f:
             inner(*args, **kwargs)
@@ -525,7 +548,7 @@ def lambda_metafun(inner):
     return wrapper
 
 # EXAMPLE USAGE:
-# @lambda_metafun
+# @simple_lambda_metafun
 # def lambda_tnt_line():
 #     with Self().at(Pos.angular(forward=8)):
 #         line(
@@ -540,9 +563,15 @@ def lambda_metafun(inner):
 #     Statement(f'execute summon marker run {lambda_tnt_line()}')
 
 
-def public(func: str | Callable, metafun_args: list = [], metafun_kwargs: dict = {}):
+@overload
+def public(func: str, fun_args: list | None): ...
+
+@overload
+def public(func: Callable, fun_args: list | None, metafun_kwargs: dict | None): ...
+
+def public(func: str | Callable, fun_args=None, metafun_kwargs=None):
     """
-    Decorator function to make publically available function with name, e.g.
+    Decorator function to make publicly available function with name, e.g.
     @public('say_hi')
     @fun
     def f():
@@ -551,34 +580,21 @@ def public(func: str | Callable, metafun_args: list = [], metafun_kwargs: dict =
     Alternative equivalent usage for argument-free functions:
     @public
     def say_hi():
-        Statement('say hi)
+        Statement('say hi')
     """
+    if fun_args is None:
+        fun_args = []
     if isinstance(func, str):
         def outer_wrapper(inner: Fun):
             with PublicFun(func) as f:
-                inner(*metafun_args, **metafun_kwargs)
+                inner(*fun_args)
             f()
         return outer_wrapper
-    with PublicFun(func.__name__) as f:
-        func(*metafun_args, **metafun_kwargs)
-    f()
-    return f
-
-def _fun_subclass(fun_class: type):
-    def outer_wrapper(inner):
-        with fun_class() as f:
-            inner()
+    else:
+        with PublicFun(func.__name__) as f:
+            if metafun_kwargs is None:
+                metafun_kwargs = {}
+            func(*fun_args, **metafun_kwargs)
         f()
-        class wrapper:
-            def __init__(self, f):
-                self.f = f
+        return f
 
-            def __call__(self, *args, **kwargs):
-                if args != () or kwargs != {}:
-                    raise ValueError("Subclassed function from decorator doesn't support dynamic arguments")
-                self.f()
-        return wrapper(f)
-    return outer_wrapper
-
-fun.ticking = _fun_subclass(TickingFun)
-fun.on_load = _fun_subclass(OnLoadFun)

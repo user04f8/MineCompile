@@ -42,7 +42,7 @@ with Namespace('fun_test'):
         with Entities(tag='laser_cannon'):
             Statement(f'scoreboard players add @s charge 1')
             with Self(scores=dict(charge='170..')):
-                @lambda_metafun
+                @simple_lambda_metafun
                 def f():
                     with Self().at(Pos.angular(forward=8)):
                         Statement('tp @s ~ ~ ~ ~ ~')
@@ -95,44 +95,44 @@ with Namespace('fun_test'):
 
 
             
-    with Namespace('checkpoint'):
-        class Checkpoint:
-            ANIMATION_T = GLOBALS.gen_name('scoreboard')
-            ANIMATION_MAX = GLOBALS.gen_name('scoreboard')
-
-            def __init__(self):
-                
-                self.tag = GLOBALS.gen_name('entity_tag')
-
-                @fun.ticking
-                def tick():
-                    with Entities(tag=self.tag) as e:
-                        Statement(f'scoreboard players add @s {self.ANIMATION_T} 1')
-                        with ScoreTree(self.ANIMATION_T, cmds_per_score=2):
-                            for i in range(1, 180):
-                                Statement(f'say {i}')
-                                Pass()
-                            Statement('say 180')
-                            Statement(f'scoreboard players set @s {self.ANIMATION_T} 0')
-                
-                @public
-                def create_checkpoint():
-                    Statement(f'execute summon marker run {self._create_sub()}')
-
-
-            @lambda_metafun
-            def _create_sub(self):
-                Statement(f'scoreboard players set @s {self.ANIMATION_T} 180')
-
-        Checkpoint()
+    # with Namespace('checkpoint'):
+    #     class Checkpoint:
+    #         ANIMATION_T = GLOBALS.gen_name('scoreboard')
+    #         ANIMATION_MAX = GLOBALS.gen_name('scoreboard')
+    #
+    #         def __init__(self):
+    #
+    #             self.tag = GLOBALS.gen_name('entity_tag')
+    #
+    #             @fun.ticking
+    #             def tick():
+    #                 with Entities(tag=self.tag) as e:
+    #                     Statement(f'scoreboard players add @s {self.ANIMATION_T} 1')
+    #                     with ScoreTree(self.ANIMATION_T, cmds_per_score=2):
+    #                         for i in range(1, 180):
+    #                             Statement(f'say {i}')
+    #                             Pass()
+    #                         Statement('say 180')
+    #                         Statement(f'scoreboard players set @s {self.ANIMATION_T} 0')
+    #
+    #             @public
+    #             def create_checkpoint():
+    #                 Statement(f'execute summon marker run {self._create_sub()}')
+    #
+    #
+    #         @lambda_metafun
+    #         def _create_sub(self):
+    #             Statement(f'scoreboard players set @s {self.ANIMATION_T} 180')
+    #
+    #     Checkpoint()
 
 
     @fun.on_load
     def load():
         Statement(f'scoreboard objectives add i dummy')
         Statement(f'scoreboard objectives add charge dummy')
-        Statement(f'scoreboard objectives add {Checkpoint.ANIMATION_T} dummy')
-        Statement(f'scoreboard objectives add {Checkpoint.ANIMATION_MAX} dummy')
+        # Statement(f'scoreboard objectives add {Checkpoint.ANIMATION_T} dummy')
+        # Statement(f'scoreboard objectives add {Checkpoint.ANIMATION_MAX} dummy')
         DebugStatement(f'load complete')
 
     @fun.ticking
