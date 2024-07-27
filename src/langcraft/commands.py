@@ -412,13 +412,6 @@ class StructuredCommand(Statement, ABC):
         self.tokens.append(sub)
 
 
-class Scoreboard(StructuredCommand):
-    NAME = 'scoreboard'
-
-    @classmethod
-    def objectives(cls):
-        return cls('objectives')
-
 class Advancement(RawCommand):
     NAME = 'advancement'
 
