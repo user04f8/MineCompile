@@ -13,11 +13,11 @@ def camel_to_snake(camel_str):
     return snake_str
 
 def pythonize_name(name: str) -> str:
-        if name in ALIASES:
-            return ALIASES[name]
-        if name in kwlist:
-            return name + '_'
-        return name
+    if name in ALIASES:
+        return ALIASES[name]
+    if name in kwlist:
+        return name + '_'
+    return name
 
 class Literal:
     def __init__(self, *args):
@@ -27,7 +27,7 @@ class Literal:
         return self(*args)
 
     def __str__(self):
-        return f'Literal[{', '.join(repr(arg) for arg in self.args)}]'
+        return f'Literal[{", ".join(repr(arg) for arg in self.args)}]'
 
 type CommandType = type | Literal | str | list[CommandType]
 
@@ -95,8 +95,6 @@ if __name__ == '__main__':
             code.append(f"NAME = '{command}'")
             code.newline()
 
-            
-            
             def is_final(command_def):
                 if command_def is None:
                     return True
@@ -105,7 +103,7 @@ if __name__ == '__main__':
                 if isinstance(command_def, Args):
                     return not command_def.next_command_def
                 raise TypeError(type(command_def))
-            
+
             def tokenize_args(args):
                 def tokenize_arg(arg_name, arg_type_str, arg_type):
                     if arg_type is str:
@@ -124,32 +122,26 @@ if __name__ == '__main__':
             def parse_subcommands(command_def, root=False, args=None):
                 if args is None:
                     args = []
-                else:
-                    args = deepcopy(args)
 
                 for subcommand, subcommand_def in command_def.items():
+                    subcommand_args = deepcopy(args)  # Reset args for each subcommand
                     self_str = 'self'
                     if root:
                         self_str = 'cls'
                         code.append('@classmethod')
                     if isinstance(subcommand_def, Args):
                         if subcommand_def.next_command_def:
-                            print(args)
-                            args += subcommand_def.arg_strs()
-                            print(args)
+                            subcommand_args += subcommand_def.arg_strs()
                         else:
-                            print(args)
-                            args += subcommand_def.arg_strs()
-                            print(args)
-                            code.append(f'def {pythonize_name(subcommand)}({self_str}, {', '.join(f'{arg_name}: {arg_type_str}' for arg_name, arg_type_str, _ in args)}):')
+                            subcommand_args += subcommand_def.arg_strs()
+                            code.append(f'def {pythonize_name(subcommand)}({self_str}, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in subcommand_args)}):')
                     else:
                         code.append(f'def {pythonize_name(subcommand)}({self_str}):')
                     with code:
                         if root:
                             if is_final(subcommand_def):
                                 code.append(f"self = cls('{pythonize_name(subcommand)}')")
-                                tokenize_args(args)
-                                # code.append(f"...  # TODO: implement")
+                                tokenize_args(subcommand_args)
                                 code.append(f"self._finalize()")
                                 code.append(f"return self")
                             else:
@@ -157,15 +149,14 @@ if __name__ == '__main__':
                         else:
                             code.append(f"self._add_kw('{subcommand}')")
                             if is_final(subcommand_def):
-                                tokenize_args(args)
-                                # code.append(f"...  # TODO: implement")
+                                tokenize_args(subcommand_args)
                                 code.append(f"self._finalize()")
                             code.append(f"return self")
                     code.newline()
 
                     subcommand_def = subcommand_def.next_command_def if isinstance(subcommand_def, Args) else subcommand_def
                     if subcommand_def is not None:
-                        parse_subcommands(subcommand_def, args=args)
+                        parse_subcommands(subcommand_def, args=subcommand_args)
 
             if command_def is None:
                 pass
