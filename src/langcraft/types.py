@@ -269,18 +269,6 @@ class _SingleSelectorBase(_SelectorBase):
                 raise ValueError(f"Non-singular selector token with limit={self.token.kwargs['limit']}")
             self.token.kwargs['limit'] = 1
 
-# class EntitySelector(Selector):
-#     def __init__(self, **kwargs):
-#         return Selector('e', **kwargs)
-    
-# class VarToken(Token): # TODO
-#     def __init__(self, entity_ref: Selector, name: str):
-#         self.entity_ref = SingleSelector(entity_ref)
-#         self.name = name
-
-#     def __str__(self):
-#         return f'{self.entity_ref} {self.name}'
-
 class _Relative:
     def __init__(self, val=None):
         self.val = val
@@ -366,13 +354,7 @@ class Pos(Serializable):
             return ' '.join(str(coord) for coord in self.vec3)
         else:
             return ' '.join(f'{self._type}{coord if coord else ''}' for coord in self.vec3)
-        
-class Loc(Pos):
-    def __init__(self, x=0, y=0, z=0):
-        """
-        Alias for Pos.relative(x, y, z)
-        """
-        super().__init__(x, y, z, type_='~')
+
 
 class Heightmap(StrEnum):
     surface = 'world_surface'

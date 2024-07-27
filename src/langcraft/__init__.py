@@ -1,7 +1,7 @@
 from .dimension import CustomDimensionType, CustomDimension
-from .json_utils import *
+from .json_utils import JSONtemplate, JSON, FunctionJSON
 
-from .types import Objective, Pos, Loc, Rot
+from .types import Objective, Pos, Rot, ExternalResourceLocation, Dimension 
 from .scores import Score
 from .load import legacy_init
 from .base import Statement, fun, ticking, on_load
