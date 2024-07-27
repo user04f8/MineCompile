@@ -472,7 +472,7 @@ def ticking(f):
     """
     if not isinstance(f, Fun):
         inner = f
-        with Fun() as f:
+        with Fun(f.__name__) as f:
             inner()
     f._attach_hook('#minecraft:tick')
     
@@ -490,7 +490,8 @@ def on_load(f):
     """
     if not isinstance(f, Fun):
         inner = f
-        with Fun() as f:
+        GLOBALS.gen_function_name()
+        with Fun(f.__name__) as f:
             inner()
     f._attach_hook('#minecraft:load')
     return f

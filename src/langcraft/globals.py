@@ -150,9 +150,9 @@ class Globals:
         if self.get_function_path() not in self.programs:
             self.programs[self.get_function_path()] = Program()
 
-    def gen_function_name(self) -> str:
+    def gen_function_name(self, default: str = 'x') -> str:
         for i in range(256):
-            candidate_name = 'x' + hex(i)[2:]
+            candidate_name = default + hex(i)[2:]
             if self.get_function_path(path=[*self.path, candidate_name]) not in self.programs:
                 return candidate_name
 
