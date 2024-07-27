@@ -470,7 +470,12 @@ def ticking(f):
     """
     Decorator for use with @fun
     """
+    if not isinstance(f, Fun):
+        inner = f
+        with Fun() as f:
+            inner()
     f._attach_hook('#minecraft:tick')
+    
     return f
 
 class OnLoadFun(Fun):
@@ -483,6 +488,10 @@ def on_load(f):
     """
     Decorator for use with @fun
     """
+    if not isinstance(f, Fun):
+        inner = f
+        with Fun() as f:
+            inner()
     f._attach_hook('#minecraft:load')
     return f
 
