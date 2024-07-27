@@ -4,7 +4,7 @@ from .json_utils import JSONtemplate, JSON, FunctionJSON
 from .types import Objective, Pos, Rot, ExternalResourceLocation, Dimension 
 from .scores import Score
 from .load import legacy_init
-from .base import Statement, fun, ticking, on_load
+from .base import Namespace, Pathspace, Statement, Pass, Debug, Fun, Partial, fun, ticking, on_load, public, metafun, lambda_metafun
 
 from .mutables import Entities, SingleEntity
 from .control_flow import If, While, Do, Schedule, ScoreTree

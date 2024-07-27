@@ -540,29 +540,6 @@ class lambda_metafun:
             # return f_stat
         return wrapper
 
-def simple_lambda_metafun(inner):
-    def wrapper(*args, **kwargs):
-        with Fun() as f:
-            inner(*args, **kwargs)
-        return f
-    return wrapper
-
-# EXAMPLE USAGE:
-# @simple_lambda_metafun
-# def lambda_tnt_line():
-#     with Self().at(Pos.angular(forward=8)):
-#         line(
-#             lambda: Statement('summon tnt ~ ~1.8 ~'),
-#             Condition(True),
-#             50
-#         )
-#         Kill(Self())
-
-# @public
-# def tnt_laser():
-#     Statement(f'execute summon marker run {lambda_tnt_line()}')
-
-
 @overload
 def public(func: str, fun_args: list | None): ...
 
