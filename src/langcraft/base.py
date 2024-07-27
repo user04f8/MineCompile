@@ -201,7 +201,7 @@ class Statement(TokensRef):
         if self.idx is not None:
             GLOBALS.clear_cmd(self.idx)
 
-class DebugStatement(Statement):
+class Debug(Statement):
     def __init__(self, msg: str = 'here', include_selector=True, scores=()):
         # json = {"text": f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)}) {msg}"}
         json_text = JSONText(f"({GLOBALS.namespace}:{'/'.join(GLOBALS.path)})", color='gray')

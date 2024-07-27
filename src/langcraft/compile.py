@@ -1,7 +1,7 @@
 from pathlib import Path
 from zipfile import ZipFile
 from random import randint
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Tuple
 import json
 
 from .globals import GLOBALS, DATAPACK_ROOT, RefFlags
@@ -100,7 +100,7 @@ def traverse(source: Ref, discovered=None, discovered_and_removed=None, depth=0)
                                             cmd._unwrapped = True
                     elif unwrap_single_line and isinstance(cmd, RawExecute):
                         fun_cmd, = source_program.cmds
-                        execute_container: _ExecuteContainer = cast(cmd.get_cmds()[-1], _ExecuteContainer)
+                        execute_container: _ExecuteContainer = cmd.get_cmds()[-1]
                         execute_container._block_tokens[1:] = fun_cmd.tokenize()
                     else:
                         print_debug(f'ignoring cmd in unwrap: {cmd} {type(cmd)}')

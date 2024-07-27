@@ -6,7 +6,6 @@ from .types import Dimension, ExternalResourceLocation, ResourceLocToken
 from .minecraft_builtins import _BuiltinDimensionTypeLiteral, _BuiltinDimensionLiteral, _Blocks
 from .globals import GLOBALS
 
-__all__ = ('CustomDimension', 'CustomDimensionType')
 
 class CustomDimensionType:
     pass  # TODO

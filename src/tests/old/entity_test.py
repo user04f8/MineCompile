@@ -3,7 +3,7 @@ from langcraft import *
 def laser(each_tick: Fun, continue_condition: Condition, end_fun: Fun):
     with Fun() as f:
         each_tick()
-        with Self().at(Pos.angular(forward=1)) as beam_forward:
+        with SelfEntity().at(Pos.angular(forward=1)) as beam_forward:
             If(continue_condition)(
                 f()
             ).Else(
@@ -16,15 +16,15 @@ with Fun() as f:
     Statement('tag @s add laser')
 
 with PublicFun('summon_beam'):
-    with Self().at(Pos.relative(0, 1.8, 0)):
+    with SelfEntity().at(Pos.relative(0, 1.8, 0)):
         Statement([RawToken('execute summon marker run'), FunStatement(f, attach_local_refs=True, ref_type=RefFlags.EXECUTE).cmds[0].tokens[0]])
 
 with Fun() as f:
-    Teleport(Self(), Pos.angular(0, 0, 1), Rot())
+    Teleport(SelfEntity(), Pos.angular(0, 0, 1), Rot())
     Statement('tag @s add explosion_trail')
 
 with PublicFun('summon_explosion_beam') as seb:
-    with Self().at(Pos.relative(0, 1.8, 0)) as s:
+    with SelfEntity().at(Pos.relative(0, 1.8, 0)) as s:
         Statement([RawToken('execute summon marker run'), FunStatement(f, attach_local_refs=True, ref_type=RefFlags.EXECUTE).cmds[0].tokens[0]])
 
 with PublicFun('timed_explode') as timed_explode:

@@ -253,7 +253,10 @@ class _SelectorBase(Serializable):
         self.token: SelectorToken = SelectorToken(selector_type, **selector_kwargs)
 
     def __eq__(self, sel: Self):
-        return (self.token.s == sel.token.s and self.token.kwargs == sel.token.kwargs)
+        if isinstance(sel, _SelectorBase):
+            return (self.token.s == sel.token.s and self.token.kwargs == sel.token.kwargs)
+        else:
+            return False
 
 class _SingleSelectorBase(_SelectorBase):
     def __init__(self, s: str | _SelectorBase = 's', **kwargs) -> None:
@@ -326,11 +329,11 @@ class Pos(Serializable):
     """
     Class for relative coordinates for `minecraft:vec3`.
     """
-    def __init__(self, x=_Relative(), y=_Relative(), z=_Relative(), _type=None):
+    def __init__(self, x=_Relative(), y=_Relative(), z=_Relative(), type_=None):
         """
         Defines positions, e.g. 0 128 0
         """
-        self._type: Literal['^'] | None = _type
+        self._type: Literal['^'] | None = type_
         self.vec3 = x, y, z
     
     @classmethod
@@ -369,7 +372,7 @@ class Loc(Pos):
         """
         Alias for Pos.relative(x, y, z)
         """
-        super().__init__(x, y, z, _type='~')
+        super().__init__(x, y, z, type_='~')
 
 class Heightmap(StrEnum):
     surface = 'world_surface'

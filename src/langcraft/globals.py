@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Optional, Callable, Set, Tuple
+from typing import Optional, Callable, Set, Tuple, List, Dict
 import random
 import string
 
@@ -8,11 +8,14 @@ from .json_utils import *
 
 DATAPACK_ROOT: str = '$root'
 
-Ref = Tuple[str, str]
+type Ref = Tuple[str, str]
 class RefFlags(IntEnum):
     NONE = 0b0
     WITH_BLOCK = 0b1
     EXECUTE = 0b10
+
+type ScoreSetup = str
+type Setup = ScoreSetup
 
 class Globals:
     def __init__(self, namespace='main'):
@@ -23,9 +26,11 @@ class Globals:
         self.structures: Dict[str] # TODO
         self.jsons: Dict[str, JSON] = {}
 
-        self.fun = None  # : Optional[Fun]  # UNUSED, can delete
+        self.fun = None
         self.blocks = []
         self.in_with = False
+
+        self.setups: List[ScoreSetup] = []
 
         self.backwards_ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[callee_ref] = {caller_ref for caller_ref in caller_refs}
         self.ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[caller_ref] = {callee_ref for callee_ref in callee_refs}
@@ -60,14 +65,10 @@ class Globals:
             return None  # failure due to recursive reference
 
         def or_dict(d1, d2):
-            return {
-                        k1: v1 for k1, v1 in d1.items() if k1 not in d2
-                    } | {
-                        k2: v2 for k2, v2 in d2.items() if k2 not in d1
-                    } | {
-                        k: v1 | d2[k] for k, v1 in d1.items() if k in d2  # to handle RefFlags
-                    }
-
+            return {k1: v1 for k1, v1 in d1.items() if k1 not in d2} | {
+                    k2: v2 for k2, v2 in d2.items() if k2 not in d1} | {
+                    k: v1 | d2[k] for k, v1 in d1.items() if k in d2}  # to handle RefFlags
+                
         # Connect each parent to each child
         for parent in parents:
             if parent not in self.ref_graph:

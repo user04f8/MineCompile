@@ -11,7 +11,7 @@ def f():
 @fun.on_load
 def onload():
     
-    RawExecute([ExecuteSub.as_(Self())], [say('hi')])
+    RawExecute([ExecuteSub.as_(SelfEntity())], [say('hi')])
     say('hi')
     say('bye')
 

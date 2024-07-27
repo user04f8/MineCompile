@@ -1,20 +1,14 @@
-from .dimension import *
-from .serialize import *
+from .dimension import CustomDimensionType, CustomDimension
 from .json_utils import *
-from .globals import *
-from .base import *
-from .compile import *
-from .debug import *
-from .control_flow import *
-from .commands import *
-from .types import *
-from .mutables import *  # has shadow-able Self
 
-def init(namespace=None):
-    if namespace:
-        Namespace(namespace).__enter__()
-        with OnLoadFun():
-            DebugStatement(f'langcraft datapack "{namespace}" ON', include_selector=False)
-    else:
-        with OnLoadFun():
-            DebugStatement(f'langcraft datapack ON', include_selector=False)
+from .types import Objective, Pos, Loc, Rot
+from .scores import Score
+from .load import legacy_init
+from .base import Statement, fun, ticking, on_load
+
+from .mutables import Entities, SingleEntity
+from .control_flow import If, While, Do, Schedule, ScoreTree
+from .commands import Condition, Advancement, Teleport, Kill
+from .globals import GLOBALS
+from .compile import compile_all, compile_program
+from .debug import display, display_all

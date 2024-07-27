@@ -9,7 +9,6 @@ from .serialize import *
 from .types import _SelectorBase, _SingleSelectorBase, Dimension, Objective, Pos, Heightmap, ResourceLocation, Rot
 from .minecraft_builtins import _Entities
 
-
 class _ConditionType(Enum):
     STR = auto()
 
@@ -61,12 +60,6 @@ class Condition:
             self.condition_type = condition_type
             self.value = value
         self.inverted = False
-
-        # match self.condition_type:
-        #     case ConditionType.OR:
-        #         assert not any(condition.condition_type == ConditionType.OR for condition in self.value), "ERROR: Condition not in disjunctive normal form (DNF)"
-        #     case ConditionType.ALL:
-        #         assert not any(condition.condition_type in {ConditionType.OR, ConditionType.ALL} for condition in self.value), "ERROR: Condition not in disjunctive normal form (DNF)"
 
     @property
     def always_true(self):
@@ -175,7 +168,7 @@ class Condition:
                     case _ConditionType.STR:
                         tokens = [RawToken(self.value)]
                     case _:
-                        self.value = cast(self.value, _ScoreOperationCondition)  # | _ScoreMatchesCondition
+                        self.value = cast(self.value, _OtherCondition)
                         tokens = self.value.sub_tokenize()
                 return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), *tokens]
 
@@ -194,60 +187,6 @@ _ConditionArgType = str | Condition | bool
 class _OtherCondition(Condition, ABC):
     def sub_tokenize(self) -> List[Token]:
         raise NotImplementedError()
-
-
-class _ScoreOperationCondition(_OtherCondition):
-    def __init__(self, target1: _SelectorBase, objective1: Objective, operation: Literal['<', '<=', '=', '>=', '>'],
-                 target2: _SelectorBase, objective2: Objective):
-        self.target1, self.objective1, self.operation, self.target2, self.objective2 = target1, objective1, operation, target2, objective2
-        super().__init__(self, condition_type=_ConditionType.OTHER)
-
-    def sub_tokenize(self) -> List[TokenBase]:
-        return [CommandKeywordToken('score'), self.target1, self.objective1, CommandKeywordToken(self.operation),
-                self.target2, self.objective2]
-
-
-class _ScoreMatchesCondition(_OtherCondition):
-    def __init__(self, target: _SelectorBase, objective: Objective, match_range: int | str):
-        self.target, self.objective, self.range = target, objective, match_range
-        super().__init__(self, condition_type=_ConditionType.OTHER)
-
-    def sub_tokenize(self) -> List[TokenBase]:
-        return [CommandKeywordToken('score'), self.target, self.objective, CommandKeywordToken('matches'),
-                MiscToken(self.range)]
-
-
-class Score:
-    def __init__(self, objective: Objective | str, target: _SelectorBase = _SelectorBase()):
-        self.target = target
-        if isinstance(objective, str):
-            objective = Objective(objective)
-        self.objective = objective
-
-    def in_range(self, low: int | str, high: int | str):
-        return _ScoreMatchesCondition(self.target, self.objective, f'{low}..{high}')
-
-    def __eq__(self, s: Self | int | str):
-        if isinstance(s, int) or isinstance(s, str):
-            return _ScoreMatchesCondition(self.target, self.objective, s)
-        return _ScoreOperationCondition(self.target, self.objective, '=', s.target, s.objective)
-
-    def __le__(self, s: Self | int):
-        if isinstance(s, int):
-            return _ScoreMatchesCondition(self.target, self.objective, f'..{s}')
-        return _ScoreOperationCondition(self.target, self.objective, '<=', s.target, s.objective)
-
-    def __ge__(self, s: Self):
-        if isinstance(s, int):
-            return _ScoreMatchesCondition(self.target, self.objective, f'{s}..')
-        return _ScoreOperationCondition(self.target, self.objective, '>=', s.target, s.objective)
-
-    def __lt__(self, s: Self):
-        return _ScoreOperationCondition(self.target, self.objective, '<', s.target, s.objective)
-
-    def __gt__(self, s: Self):
-        return _ScoreOperationCondition(self.target, self.objective, '>', s.target, s.objective)
-
 
 class ExecuteSub:
     def __init__(self, subcmd: str, *args: TokenBase):
@@ -396,6 +335,8 @@ class Teleport(Statement):
         # args = [arg for arg in args if arg is not None] # trim kwarg=None to defaults
         self.simple = False
         if len(args) == 1 and isinstance(args[0], _SingleSelectorBase):
+            tokens = args
+        elif len(args) == 2 and isinstance(args[0], _SelectorBase) and isinstance(args[1], _SingleSelectorBase):
             tokens = args
         else:
             if args and isinstance(args[0], _SelectorBase):

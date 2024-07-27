@@ -1,6 +1,7 @@
 from typing import Self, List, Dict
 import json
 
+__all__ = ('JSONtemplate', 'JSON', 'FunctionJSON')
 
 class JSONtemplate:
     def __init__(self, type_dict: dict, cls_dict: dict):
