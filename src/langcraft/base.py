@@ -3,9 +3,10 @@ from copy import copy
 from enum import Enum
 from typing import Callable, Optional, Tuple, overload
 
+from .base_types import Int32
 from .globals import GLOBALS, RefFlags
 from .serialize import *
-from .types import Int32, JSONText
+from .serialize_types import JSONText
 
 
 class Namespace:
@@ -46,9 +47,6 @@ class ArgType(Enum):
     @staticmethod
     def infer(x):
         match x:
-            # case tuple(xs) | list(xs):
-            #     self.type = SimpleValType.TUPLE
-            #     self.types = tuple(ValType(x) for x in xs)
             case int(_):
                 return ArgType.INT
             case _:
@@ -60,15 +58,6 @@ class ArgType(Enum):
                 return Int32(x)
             case _:
                 raise TypeError(f"Type {self} doesn't support input {x}")
-            
-# class ValueRef:
-    # def __init__(self, x, type: Optional[ArgType]):
-    #     if type is None:
-    #         self.type = ArgType.infer(x)
-    #     else:
-    #         x = type.cast(x)
-    #         self.type = type
-    #     self.x = x
 
 class Arg(TokensRef):
     def __init__(self, ident: int, type_: ArgType):

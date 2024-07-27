@@ -1,8 +1,9 @@
 from typing import Literal, Self, List, Tuple
 
 from .base import Statement, Fun, Block, FunStatement, WithStatement
-from .commands import Condition, RawExecute, _ConditionArgType, Score
-from .types import _Days, _Seconds
+from .commands import Condition, RawExecute, _ConditionArgType
+from .scores import Score
+from .serialize_types import _Days, _Seconds
 
 class If(WithStatement):
     def __init__(self, condition: _ConditionArgType, add=True):

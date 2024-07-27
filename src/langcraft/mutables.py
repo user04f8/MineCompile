@@ -8,7 +8,7 @@ from langcraft.serialize import TokensContainer
 from .json_utils import JSON
 from .serialize import SelectorToken, TokensRef
 from .base import Fun, Statement, Block, WithStatement, fun
-from .types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
+from .serialize_types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
 from .minecraft_builtins import _Entities
 from .dimension import _Dimension

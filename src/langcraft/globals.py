@@ -1,10 +1,11 @@
 from enum import IntEnum
-from typing import Optional, Callable, Set, Tuple, List, Dict
+from typing import Optional, Callable, Set, Tuple, List, Dict, Literal
 import random
 import string
 
+from .base_types import ObjectiveName, ScoreCriterion
+from .json_utils import JSON, FunctionJSON
 from .serialize import Program
-from .json_utils import *
 
 DATAPACK_ROOT: str = '$root'
 
@@ -14,7 +15,7 @@ class RefFlags(IntEnum):
     WITH_BLOCK = 0b1
     EXECUTE = 0b10
 
-type ScoreSetup = str
+type ScoreSetup = Tuple[Literal['score'], ObjectiveName, ScoreCriterion]
 type Setup = ScoreSetup
 
 class Globals:
@@ -30,7 +31,7 @@ class Globals:
         self.blocks = []
         self.in_with = False
 
-        self.setups: List[ScoreSetup] = []
+        self.setups: List[Setup] = []
 
         self.backwards_ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[callee_ref] = {caller_ref for caller_ref in caller_refs}
         self.ref_graph: Dict[Ref, Dict[Ref, RefFlags]] = {}  # GLOBALS.ref_graph[caller_ref] = {callee_ref for callee_ref in callee_refs}

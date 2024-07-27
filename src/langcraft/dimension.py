@@ -2,7 +2,7 @@ from typing import List, Literal, Optional, Self, overload
 
 from .serialize import Serializable
 from .json_utils import JSON
-from .types import Dimension, ExternalResourceLocation, ResourceLocToken
+from .serialize_types import Dimension, ExternalResourceLocation, ResourceLocToken
 from .minecraft_builtins import _BuiltinDimensionTypeLiteral, _BuiltinDimensionLiteral, _Blocks
 from .globals import GLOBALS
 

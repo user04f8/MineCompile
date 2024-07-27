@@ -3,7 +3,7 @@ from typing import Literal, Self, List
 from .globals import GLOBALS
 from .serialize import MiscToken, CommandKeywordToken, TokenBase
 from .commands import _OtherCondition, _ConditionType
-from .types import _SelectorBase, Objective
+from .serialize_types import _SelectorBase, Objective
 
 
 class _ScoreOperationCondition(_OtherCondition):

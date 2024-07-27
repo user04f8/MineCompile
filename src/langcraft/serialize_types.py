@@ -231,16 +231,6 @@ class JSONText(Serializable):
 
         return preview
 
-class Int32(TokenBase):
-    MIN = -2**31
-    MAX = 2**31 - 1
-    def __init__(self, x: int):
-        assert self.MIN <= x <= self.MAX
-        self.x = x
-
-    def __str__(self):
-        return str(self.x)
-
 _SliceType = int | str  # str that is of form #, #.., ..#, or #..#
 
 _SELECTOR_TYPE = Literal['s'] | Literal['a'] | Literal['p'] | Literal['e'] | Literal['n'] | Literal['r']

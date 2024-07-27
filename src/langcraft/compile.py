@@ -10,6 +10,7 @@ from .json_utils import JSON
 from .serialize import REMOVE_TOKEN_SEP, TOKEN_SEP, Program, serialize_function_name
 from .base import Fun, FunStatement, Namespace, WithStatement
 from .commands import _ExecuteContainer, RawExecute
+from .load import load
 
 PRUNE_INLINE = False  # TODO need to update optim
 PRUNE_INLINE_EXECUTE = False

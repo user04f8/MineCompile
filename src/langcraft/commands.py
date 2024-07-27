@@ -6,7 +6,7 @@ from typing import Optional, overload, cast
 from .globals import RefFlags
 from .base import FunStatement, Statement, Fun
 from .serialize import *
-from .types import _SelectorBase, _SingleSelectorBase, Dimension, Objective, Pos, Heightmap, ResourceLocation, Rot
+from .serialize_types import _SelectorBase, _SingleSelectorBase, Dimension, Objective, Pos, Heightmap, ResourceLocation, Rot
 from .minecraft_builtins import _Entities
 
 class _ConditionType(Enum):
@@ -394,6 +394,30 @@ class RawCommand(Statement):
     def _as_cmds(self, *tokens: TokenBase) -> TokensContainer:
         return TokensContainer(CommandNameToken(self.NAME), *tokens)
 
+class StructuredCommand(Statement, ABC):
+    NAME: str
+
+    def __init__(self, root_kw=None):
+        self.tokens = []
+        if root_kw:
+            self._add_kw(root_kw)
+
+    def _finalize(self, add=True):
+        super().__init__(CommandNameToken(self.NAME), *self.tokens, add=add)
+
+    def _add_kw(self, kw: str):
+        self.tokens.append(CommandKeywordToken(kw))
+    
+    def _add_token(self, sub: Token):
+        self.tokens.append(sub)
+
+
+class Scoreboard(StructuredCommand):
+    NAME = 'scoreboard'
+
+    @classmethod
+    def objectives(cls):
+        return cls('objectives')
 
 class Advancement(RawCommand):
     NAME = 'advancement'
