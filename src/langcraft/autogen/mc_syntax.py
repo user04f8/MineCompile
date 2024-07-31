@@ -1,6 +1,5 @@
 import re
 
-
 def camel_to_snake(camel_str):
     # Replace all capital letters with underscore followed by the lowercase version of the letter
     snake_str = re.sub(r'(?<!^)(?=[A-Z])', '_', camel_str).lower()
@@ -26,10 +25,11 @@ type CommandType = type | Literal | str | list[CommandType]
 class Args:
     def __init__(self, **kwargs: CommandType):
         self.args: dict[str, CommandType] = kwargs
-        self.next_command_def = {}
+        self.next_command_def: dict | None = None
 
     def __add__(self, command_def):
         self.next_command_def = command_def
+        return self
 
     def arg_strs(self) -> list[tuple[str, str, str]]:
         def arg_str(arg_type):
@@ -53,17 +53,24 @@ COMMANDS: CommandDef = {
             'add': Args(objective=str, criteria=str, displayName=[str]),
             'remove': Args(objective=str),
             Alias('set_display', 'setdisplay'): Args(slot=str, objective=[str]),
-            'modify': {
-                Alias('display_auto_update', 'displayautoupdate'): Args(objective=str, value=str),
-                Alias('display_name', 'displayname'): Args(objective=str, displayName=str),
+            'modify': Args(objective=str) + {
+                Alias('display_auto_update', 'displayautoupdate'): Args(value=bool),
+                Alias('display_name', 'displayname'): Args(displayName=str),
                 Alias('number_format', 'numberformat'): {
-                    Alias('reset', None): Args(objective=str),
-                    'blank': Args(objective=str),
-                    'fixed': Args(objective=str, component=str),
-                    'styled': Args(objective=str, style=str)
+                    Alias('reset', None): None,
+                    'blank': None,
+                    'fixed': Args(component=str),
+                    'styled': Args(style=str)
                 },
-                'rendertype': Args(objective=str, rendertype=Literal['hearts', 'integer'])
+                'rendertype': Args(rendertype=Literal['hearts', 'integer'])
             }
+        }
+    },
+    'effect': {
+        'clear': Args(targets=[str], effect=[str]),
+        'give': Args(targets='Entities', effect=str) + {
+            None: Args(seconds=[int], amplifier=[int], hideParticles=[bool]),
+            'infinite': Args(amplifier=[int], hideParticles=[bool])
         }
     }
 }

@@ -11,6 +11,9 @@ def tick():
 
         Debug()
 
+@public
+def slow():
+    Effect.give(SelfEntity(), 'slowness', 6)
 
 
 display_all(optim=False)

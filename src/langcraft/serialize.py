@@ -20,6 +20,7 @@ class _Colors:
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan'  # hardcoded to be underlined
     STR = 'green'
+    BOOL = 'yellow'
     MISC = 'light_grey'
     FLAG = 'dark_grey'
 
@@ -109,6 +110,16 @@ class StrToken(TokenBase):
 
     def __str__(self):
         return self.s
+
+
+class BoolToken(TokenBase):
+    COLOR = _Colors.BOOL
+
+    def __init__(self, b: bool):
+        self.b = b
+
+    def __str__(self):
+        return ('true' if self.b else 'false')
 
 
 class MiscToken(StrToken):

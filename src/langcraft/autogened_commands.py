@@ -1,103 +1,123 @@
-from typing import Optional, Literal, Self
+from typing import Optional, Literal
 
-from .serialize import StrToken
+from .serialize import StrToken, BoolToken, CommandKeywordToken
 from .commands import StructuredCommand
+from .mutables import Entities
 
-class classproperty:
-    def __init__(self, func):
-        self.fget = func
-    def __get__(self, instance, owner):
-        return self.fget(owner)
+__all__ = ('Scoreboard', 'Effect')
 
-class Scoreboard(StructuredCommand):
-    NAME = 'scoreboard'
+class Scoreboard:
+    class objectives(StructuredCommand):
+        class __list(StructuredCommand):
+            NAME = 'scoreboard'
+            FORMAT = ['objectives', 'list']
 
-    # @classmethod
-    # def objectives(cls):
-    #     return cls('objectives')
+        @classmethod
+        def list(cls):
+            return cls.__list()._finalize([])
 
-    def list(self):
-        self._add_kw('list')
-        self._finalize()
-        return self
+        class __add(StructuredCommand):
+            NAME = 'scoreboard'
+            FORMAT = ['objectives', 'add', '$arg', '$arg', '$arg']
 
-    def add(self, objective: str, criteria: str, display_name: Optional[str] = None):
-        self._add_kw('add')
-        self._add_token(StrToken(objective))
-        self._add_token(StrToken(criteria))
-        if display_name is not None:
-            self._add_token(StrToken(display_name))
-        self._finalize()
-        return self
+        @classmethod
+        def add(cls, objective: str, criteria: str, display_name: Optional[str] = None):
+            return cls.__add()._finalize([StrToken(objective), StrToken(criteria), (None if display_name is None else StrToken(display_name))])
 
-    def remove(self, objective: str):
-        self._add_kw('remove')
-        self._add_token(StrToken(objective))
-        self._finalize()
-        return self
+        class __remove(StructuredCommand):
+            NAME = 'scoreboard'
+            FORMAT = ['objectives', 'remove', '$arg']
 
-    def set_display(self, slot: str, objective: Optional[str] = None):
-        self._add_kw('setdisplay')
-        self._add_token(StrToken(slot))
-        if objective is not None:
-            self._add_token(StrToken(objective))
-        self._finalize()
-        return self
+        @classmethod
+        def remove(cls, objective: str):
+            return cls.__remove()._finalize([StrToken(objective)])
 
-    @property
-    def modify(self):
-        self._add_kw('modify')
-        return self
+        class __set_display(StructuredCommand):
+            NAME = 'scoreboard'
+            FORMAT = ['objectives', 'setdisplay', '$arg', '$arg']
 
-    def display_auto_update(self, objective: str, value: str):
-        self._add_kw('displayautoupdate')
-        self._add_token(StrToken(objective))
-        self._add_token(StrToken(value))
-        self._finalize()
-        return self
+        @classmethod
+        def set_display(cls, slot: str, objective: Optional[str] = None):
+            return cls.__set_display()._finalize([StrToken(slot), (None if objective is None else StrToken(objective))])
 
-    def display_name(self, objective: str, display_name: str):
-        self._add_kw('displayname')
-        self._add_token(StrToken(objective))
-        self._add_token(StrToken(display_name))
-        self._finalize()
-        return self
+        class modify(StructuredCommand):
+            class __display_auto_update(StructuredCommand):
+                NAME = 'scoreboard'
+                FORMAT = ['objectives', 'modify', '$arg', 'displayautoupdate', '$arg']
 
-    @property
-    def number_format(self):
-        self._add_kw('numberformat')
-        return self
+            @classmethod
+            def display_auto_update(cls, objective: str, value: bool):
+                return cls.__display_auto_update()._finalize([StrToken(objective), BoolToken(value)])
 
-    def reset(self, objective: str):
-        self._add_token(StrToken(objective))
-        self._finalize()
-        return self
+            class __display_name(StructuredCommand):
+                NAME = 'scoreboard'
+                FORMAT = ['objectives', 'modify', '$arg', 'displayname', '$arg']
 
-    def blank(self, objective: str):
-        self._add_kw('blank')
-        self._add_token(StrToken(objective))
-        self._finalize()
-        return self
+            @classmethod
+            def display_name(cls, objective: str, display_name: str):
+                return cls.__display_name()._finalize([StrToken(objective), StrToken(display_name)])
 
-    def fixed(self, objective: str, component: str):
-        self._add_kw('fixed')
-        self._add_token(StrToken(objective))
-        self._add_token(StrToken(component))
-        self._finalize()
-        return self
+            class number_format(StructuredCommand):
+                class __reset(StructuredCommand):
+                    NAME = 'scoreboard'
+                    FORMAT = ['objectives', 'modify', '$arg', 'numberformat']
 
-    def styled(self, objective: str, style: str):
-        self._add_kw('styled')
-        self._add_token(StrToken(objective))
-        self._add_token(StrToken(style))
-        self._finalize()
-        return self
+                @classmethod
+                def reset(cls, objective: str):
+                    return cls.__reset()._finalize([StrToken(objective)])
 
-    def rendertype(self, objective: str, rendertype: Literal['hearts', 'integer']):
-        self._add_kw('rendertype')
-        self._add_token(StrToken(objective))
-        self._add_kw(rendertype)
-        self._finalize()
-        return self
+                class __blank(StructuredCommand):
+                    NAME = 'scoreboard'
+                    FORMAT = ['objectives', 'modify', '$arg', 'numberformat', 'blank']
 
-Scoreboard.objectives.
+                @classmethod
+                def blank(cls, objective: str):
+                    return cls.__blank()._finalize([StrToken(objective)])
+
+                class __fixed(StructuredCommand):
+                    NAME = 'scoreboard'
+                    FORMAT = ['objectives', 'modify', '$arg', 'numberformat', 'fixed', '$arg']
+
+                @classmethod
+                def fixed(cls, objective: str, component: str):
+                    return cls.__fixed()._finalize([StrToken(objective), StrToken(component)])
+
+                class __styled(StructuredCommand):
+                    NAME = 'scoreboard'
+                    FORMAT = ['objectives', 'modify', '$arg', 'numberformat', 'styled', '$arg']
+
+                @classmethod
+                def styled(cls, objective: str, style: str):
+                    return cls.__styled()._finalize([StrToken(objective), StrToken(style)])
+
+            class __rendertype(StructuredCommand):
+                NAME = 'scoreboard'
+                FORMAT = ['objectives', 'modify', '$arg', 'rendertype', '$arg']
+
+            @classmethod
+            def rendertype(cls, objective: str, rendertype: Literal['hearts', 'integer']):
+                return cls.__rendertype()._finalize([StrToken(objective), CommandKeywordToken(rendertype)])
+
+
+class Effect:
+    class __clear(StructuredCommand):
+        NAME = 'effect'
+        FORMAT = ['clear', '$arg', '$arg']
+
+    @classmethod
+    def clear(cls, targets: Optional[str] = None, effect: Optional[str] = None):
+        return cls.__clear()._finalize([(None if targets is None else StrToken(targets)), (None if effect is None else StrToken(effect))])
+
+    class give(StructuredCommand):
+        def __call__(self, targets: Entities, effect: str, seconds: Optional[int] = None, amplifier: Optional[int] = None, hide_particles: Optional[bool] = None):
+            self._finalize([targets, effect, seconds, amplifier, hide_particles])
+
+        class __infinite(StructuredCommand):
+            NAME = 'effect'
+            FORMAT = ['give', '$arg', '$arg', 'infinite', '$arg', '$arg']
+
+        @classmethod
+        def infinite(cls, targets: Entities, effect: str, amplifier: Optional[int] = None, hide_particles: Optional[bool] = None):
+            return cls.__infinite()._finalize([targets, StrToken(effect), (None if amplifier is None else amplifier), (None if hide_particles is None else BoolToken(hide_particles))])
+
+Effect.give()

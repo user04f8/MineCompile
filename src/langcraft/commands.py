@@ -396,20 +396,25 @@ class RawCommand(Statement):
 
 class StructuredCommand(Statement, ABC):
     NAME: str
+    FORMAT: list[str]
 
-    def __init__(self, root_kw=None):
-        self.tokens = []
-        if root_kw:
-            self._add_kw(root_kw)
-
-    def _finalize(self, add=True):
-        super().__init__(CommandNameToken(self.NAME), *self.tokens, add=add)
-
-    def _add_kw(self, kw: str):
-        self.tokens.append(CommandKeywordToken(kw))
+    def __init__(self):
+        pass
     
-    def _add_token(self, sub: Token):
-        self.tokens.append(sub)
+    def _finalize(self, args: list, add=True):
+        tokens = []
+        for kw_token in self.FORMAT:
+            if kw_token == '$arg':
+                arg = args.pop()
+                if arg is None:
+                    break
+                tokens.append(arg)
+            else:
+                tokens.append(CommandKeywordToken(kw_token))
+        
+        assert all(arg is None for arg in args), f"Invalid args remaining: {args}"
+
+        super().__init__([CommandNameToken(self.NAME), *tokens], add=add)
 
 
 class Advancement(RawCommand):
