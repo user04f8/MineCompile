@@ -94,4 +94,4 @@ _BlockEntities = Literal['falling_block', 'tnt']
 
 _MiscEntities = Literal['area_effect_cloud', 'end_crystal', 'evoker_fangs', 'fishing_bobber', 'glow_item_frame', 'item_frame', 'leash_knot', 'lightning_bolt', 'marker', 'interaction', 'block_display', 'item_display', 'text_display', 'painting', 'experience_orb', 'item']
 
-_Entities = _Mobs | _ProjectileEntities | _VehicleEntities | _BlockEntities | _MiscEntities
+type EntityType = _Mobs | _ProjectileEntities | _VehicleEntities | _BlockEntities | _MiscEntities

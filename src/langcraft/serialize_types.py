@@ -6,7 +6,7 @@ from termcolor import colored
 from .globals import GLOBALS
 from .debug_utils import print_debug
 from .serialize import ResourceLocToken, TokenBase, SelectorToken, Serializable
-from .minecraft_builtins import _BuiltinDimensionLiteral, _Entities
+from .minecraft_builtins import _BuiltinDimensionLiteral, EntityType
 
 class JSONText(Serializable):
     def __init__(self, 
@@ -256,8 +256,29 @@ class _SingleSelectorBase(_SelectorBase):
             super().__init__(s, **kwargs)
         if self.token.s not in {'p', 'r', 's', 'n'}:
             if 'limit' in self.token.kwargs and self.token.kwargs['limit'] != 1:
-                raise ValueError(f"Non-singular selector token with limit={self.token.kwargs['limit']}")
+                raise ValueError(f"Non-singular selector token @{self.token.s} with limit={self.token.kwargs['limit']}")
             self.token.kwargs['limit'] = 1
+
+
+class _PlayerSelectorBase(_SelectorBase):
+    def __init__(self, s: str | _SelectorBase = 'a', **kwargs) -> None:
+        if isinstance(s, _SelectorBase):
+            self.token = s.token
+        else:
+            super().__init__(s, **kwargs)
+        if self.token.s not in {'p', 'r', 's', 'a'}:
+            raise ValueError(f"@{self.token.s}: not a player selector token")
+
+
+class _SinglePlayerSelectorBase(_PlayerSelectorBase):
+    def __init__(self, s: str | _SelectorBase = 'p', **kwargs) -> None:
+        if isinstance(s, _SelectorBase):
+            self.token = s.token
+        else:
+            super().__init__(s, **kwargs)
+        if self.token.s not in {'p', 'r', 's'}:
+            raise ValueError(f"@{self.token.s}: not a player selector token")
+        
 
 class _Relative:
     def __init__(self, val=None):

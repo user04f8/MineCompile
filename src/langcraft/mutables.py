@@ -8,9 +8,9 @@ from langcraft.serialize import TokensContainer
 from .json_utils import JSON
 from .serialize import SelectorToken, TokensRef
 from .base import Fun, Statement, Block, WithStatement, fun
-from .serialize_types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, Heightmap, _SliceType
+from .serialize_types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, _PlayerSelectorBase, _SinglePlayerSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
-from .minecraft_builtins import _Entities
+from .minecraft_builtins import EntityType
 from .dimension import _Dimension
 
 class _EntityRelative(_Relative):
@@ -21,7 +21,7 @@ class _EntityRelative(_Relative):
 class Entities(_SelectorBase):
     def __init__(self,
                  selector_type: _SELECTOR_TYPE = 'e',
-                 type: _Entities = None,
+                 type: EntityType = None,
                  name: str = None,
                  predicate = None,  # TODO add Predicate type
                  nbt: JSON = None,
@@ -268,6 +268,12 @@ class Entities(_SelectorBase):
 class SingleEntity(Entities, _SingleSelectorBase):
     pass
 
+class Players(Entities, _PlayerSelectorBase):
+    pass
+
+class SinglePlayer(Entities, _SinglePlayerSelectorBase):
+    pass
+
 class SelfEntity(SingleEntity):
     def __init__(self,
                  **selector_kwargs
@@ -281,7 +287,7 @@ class PosRef:
 
 class Summon(WithStatement):
     def __init__(self,    
-                 entity_name: _Entities
+                 entity_name: EntityType
                  ):
         self.entity_name = entity_name
         super().__init__('$summon', add=False)

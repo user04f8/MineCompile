@@ -39,6 +39,9 @@ class Globals:
         self.resource_hooks = {} # TODO
         self.names: Dict[str, Set[str]] = {}
 
+    def reset(self):
+        self.__init__(namespace=self.namespace)
+
     def ref_call(self, caller_ref: Ref, callee_ref: Ref, ref_type: RefFlags = RefFlags.NONE):
         if caller_ref in self.ref_graph:
             if callee_ref in self.ref_graph[caller_ref]:
@@ -232,6 +235,18 @@ class Globals:
         # tag_type can be ['function', 'block', 'entity_type', 'fluid', 'game_event', 'item'] or any registry
         # see https://minecraft.wiki/w/Tag#List_of_tags
         self.set_json(name, json, 'tags/' + tag_type)
-    
+
+class GlobalRef:
+    def __init__(self, globals: Globals):
+        self.globals = globals
+
+    def __reset(self):
+        self.globals = Globals()
+
+    def __getattr__(self, name):
+        if name == '__reset':
+            return self.__reset
+        else:
+            return getattr(self.globals, name)
 
 GLOBALS = Globals()

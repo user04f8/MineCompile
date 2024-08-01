@@ -1,5 +1,5 @@
-from typing import Union, Literal
+from typing import Literal
 
-_BuiltinDimensionLiteral = Literal['overworld'] | Literal['the_nether'] | Literal['the_end']
+_BuiltinDimensionLiteral = Literal['overworld', 'the_nether', 'the_end']
+_BuiltinDimensionTypeLiteral = Literal['overworld', 'the_nether', 'the_end', 'overworld_caves']
 
-_BuiltinDimensionTypeLiteral = Literal['overworld'] | Literal['the_nether'] | Literal['the_end'] | Literal['overworld_caves']

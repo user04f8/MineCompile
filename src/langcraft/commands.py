@@ -7,7 +7,7 @@ from .globals import RefFlags
 from .base import FunStatement, Statement, Fun
 from .serialize import *
 from .serialize_types import _SelectorBase, _SingleSelectorBase, Dimension, Objective, Pos, Heightmap, ResourceLocation, Rot
-from .minecraft_builtins import _Entities
+from .minecraft_builtins import EntityType
 
 class _ConditionType(Enum):
     STR = auto()
@@ -245,7 +245,7 @@ class ExecuteSub:
         raise NotImplementedError
 
     @classmethod
-    def summon(cls, name: _Entities):
+    def summon(cls, name: EntityType):
         return cls('summon', BuiltinResourceToken(name))
 
     @classmethod
@@ -405,14 +405,21 @@ class StructuredCommand(Statement, ABC):
         tokens = []
         for kw_token in self.FORMAT:
             if kw_token == '$arg':
-                arg = args.pop()
+                arg = args.pop(0)
                 if arg is None:
-                    break
+                    raise ValueError(f'command {self.NAME}: missing argument, args remaining: {args}')
                 tokens.append(arg)
+            elif kw_token == '$optional_arg':
+                arg = args.pop(0)
+                if arg is None:
+                    continue
+                tokens.append(arg)
+            elif kw_token[0] == '$':
+                raise ValueError(f'Invalid special {kw_token} in StructuredCommand {self.__name__}')
             else:
                 tokens.append(CommandKeywordToken(kw_token))
         
-        assert all(arg is None for arg in args), f"Invalid args remaining: {args}"
+        assert all(arg is None for arg in args), f"command {self.NAME}: invalid args remaining: {args}"
 
         super().__init__([CommandNameToken(self.NAME), *tokens], add=add)
 

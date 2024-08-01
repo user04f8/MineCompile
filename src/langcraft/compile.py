@@ -101,7 +101,7 @@ def traverse(source: Ref, discovered=None, discovered_and_removed=None, depth=0)
                                             cmd._unwrapped = True
                     elif unwrap_single_line and isinstance(cmd, RawExecute):
                         fun_cmd, = source_program.cmds
-                        execute_container: _ExecuteContainer = cmd.get_cmds()[-1]
+                        execute_container: _ExecuteContainer = cmd._get_cmds()[-1]
                         execute_container._block_tokens[1:] = fun_cmd.tokenize()
                     else:
                         print_debug(f'ignoring cmd in unwrap: {cmd} {type(cmd)}')
@@ -130,9 +130,9 @@ def save_files_to_zip(root_dir: str, write_files: dict):
         for file_path, content in write_files.items():
             zipf.writestr(file_path, content)
 
-def compile_all(programs: Dict[str, Program] = GLOBALS.programs,
-                structures: Dict[str, Any] = None,
-                jsons: Dict[str, JSON] = GLOBALS.jsons,
+def compile_all(programs: Dict[str, Program] | None = None,
+                structures: Dict[str, Any] | None = None,
+                jsons: Dict[str, JSON] | None = None,
                 root_dir: str = '../datapacks/compile_test',
                 write=False,
                 color=False,
@@ -140,6 +140,12 @@ def compile_all(programs: Dict[str, Program] = GLOBALS.programs,
                 optim=True,
                 save_strategy=save_files_to_zip
                 ) -> Dict[str, str]:
+    if programs is None:
+        programs = GLOBALS.programs
+    if jsons is None:
+        jsons = GLOBALS.jsons
+
+
     root_dir = root_dir.replace('$rand', hex(randint(0, 65535)))
     data_dir = 'data'
 

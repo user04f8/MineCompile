@@ -3,7 +3,7 @@ from typing import List, Literal, Optional, Self, overload
 from .serialize import Serializable
 from .json_utils import JSON
 from .serialize_types import Dimension, ExternalResourceLocation, ResourceLocToken
-from .minecraft_builtins import _BuiltinDimensionTypeLiteral, _BuiltinDimensionLiteral, _Blocks
+from .minecraft_builtins import _BuiltinDimensionTypeLiteral, _BuiltinDimensionLiteral, BlockType
 from .globals import GLOBALS
 
 
@@ -55,9 +55,9 @@ class CustomDimension(Serializable):
               ore_veins_enabled: bool = True,
               aquifers_enabled: bool = True,
               legacy_random_source: bool = False,
-              default_block: _Blocks = 'stone',
+              default_block: BlockType = 'stone',
               default_block_properties: JSON = JSON(),
-              default_fluid: _Blocks = 'water',
+              default_fluid: BlockType = 'water',
               default_fluid_properties: JSON = JSON(),
               spawn_target: List[JSON] = [],
               # settings.noise
@@ -84,9 +84,9 @@ class CustomDimension(Serializable):
               ore_veins_enabled: bool = True,
               aquifers_enabled: bool = True,
               legacy_random_source: bool = False,
-              default_block: _Blocks = 'stone',
+              default_block: BlockType = 'stone',
               default_block_properties: JSON = JSON(),
-              default_fluid: _Blocks = 'water',
+              default_fluid: BlockType = 'water',
               default_fluid_properties: JSON = JSON(),
               spawn_target: List[JSON] = [],
               # settings.noise

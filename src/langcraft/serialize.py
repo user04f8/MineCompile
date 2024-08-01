@@ -20,7 +20,7 @@ class _Colors:
     SUBCOMMAND = 'light_magenta'
     FUNCTION = 'light_cyan'  # hardcoded to be underlined
     STR = 'green'
-    BOOL = 'yellow'
+    MISC_LITERAL = 'yellow'
     MISC = 'light_grey'
     FLAG = 'dark_grey'
 
@@ -111,9 +111,26 @@ class StrToken(TokenBase):
     def __str__(self):
         return self.s
 
+class IntToken(TokenBase):
+    COLOR = _Colors.MISC_LITERAL
+
+    def __init__(self, i: int):
+        self.i = i
+
+    def __str__(self):
+        return str(self.i)
+
+class FloatToken(TokenBase):
+    COLOR = _Colors.MISC_LITERAL
+
+    def __init__(self, f: float):
+        self.f = f
+
+    def __str__(self):
+        return str(round(self.f, 8))
 
 class BoolToken(TokenBase):
-    COLOR = _Colors.BOOL
+    COLOR = _Colors.MISC_LITERAL
 
     def __init__(self, b: bool):
         self.b = b
@@ -393,7 +410,7 @@ class TokensContainer:
 
 
 class TokensRef(ABC):
-    def get_cmds(self) -> List[TokensContainer | Self]:
+    def _get_cmds(self) -> List[TokensContainer | Self]:
         raise NotImplementedError()
 
     def single_line_tokenize(self) -> List[TokenBase] | None:
@@ -425,7 +442,7 @@ class TokensRef(ABC):
         return self.serialize()
 
     def resolve(self) -> List[TokensContainer]:
-        resolved_cmds = [resolved_cmd for cmd in self.get_cmds() for resolved_cmd in
+        resolved_cmds = [resolved_cmd for cmd in self._get_cmds() for resolved_cmd in
                          (cmd.resolve() if isinstance(cmd, TokensRef) else [cmd])]
         return resolved_cmds
 

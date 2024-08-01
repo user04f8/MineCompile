@@ -1,2 +1,2 @@
 
-_Blocks = str  # TODO
+type BlockType = str  # TODO

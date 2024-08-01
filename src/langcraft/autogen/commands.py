@@ -1,7 +1,9 @@
 from copy import deepcopy
 from keyword import kwlist
+from types import UnionType
+from typing import get_origin, Literal, Union
 
-from langcraft.autogen.mc_syntax import COMMANDS, Args, Literal, Alias
+from langcraft.autogen.mc_syntax import COMMANDS, Args, Alias
 
 # py -m langcraft.autogen.commands
 
@@ -42,8 +44,12 @@ class CodeStr(list):
             self.newline()
         CodeStr.exiting = True
 
+    @staticmethod
+    def _preprocess(x: str) -> str:
+        return x.replace('typing.', '')
+
     def append(self, x: str):
-        super().append(self.INDENT * self.indent_level + x)
+        super().append(self.INDENT * self.indent_level + self._preprocess(x))
 
     def newline(self, n=1):
         for _ in range(n):
@@ -53,13 +59,21 @@ class CodeStr(list):
         return '\n'.join(self)
 
 
-if __name__ == '__main__':
+def _autogen():
     code = CodeStr(
-'''from typing import Optional, Literal
+'''
+from typing import Optional, Literal, Union
 
-from .serialize import StrToken, BoolToken, CommandKeywordToken
+from .serialize import StrToken, BoolToken, IntToken, FloatToken, MiscToken, CommandKeywordToken
+from .serialize_types import ResourceLocation
 from .commands import StructuredCommand
-from .mutables import Entities
+from .mutables import Entities, SingleEntity, Players, SinglePlayer
+from .minecraft_builtins import EffectType, EntityType, BlockType, _AttributeType
+
+def resource_location_cast(x: str | ResourceLocation) -> ResourceLocation:
+    if isinstance(x, str):
+        return ResourceLocation('minecraft', x)
+    return x
 '''
     )
 
@@ -74,6 +88,32 @@ from .mutables import Entities
         if isinstance(command_def, Args):
             return not command_def.next_command_def
         raise TypeError(type(command_def))
+    
+    def finalize_call(sub_args):
+        def arg_type_to_str(arg_type, arg_name) -> str:
+            if isinstance(arg_type, list):
+                assert len(arg_type) == 1
+                return f'(None if {arg_name} is None else {arg_type_to_str(arg_type[0], arg_name)})'
+            elif arg_type is str:
+                return f'StrToken({arg_name})'
+            elif arg_type is bool:
+                return f'BoolToken({arg_name})'
+            elif arg_type is int:
+                return f'IntToken({arg_name})'
+            elif arg_type is float:
+                return f'FloatToken({arg_name})'
+            elif arg_type == 'ResourceLocation':
+                return f'resource_location_cast({arg_name})'
+            elif get_origin(arg_type) in (Union, UnionType):
+                return f'MiscToken({arg_name})'
+            elif get_origin(arg_type) == Literal:
+                return f'CommandKeywordToken({arg_name})'
+            elif isinstance(arg_type, str):
+                return arg_name
+            else:
+                return f'MiscToken({arg_name})'
+
+        return f'_finalize([{", ".join(arg_type_to_str(arg_type, arg_name) for arg_name, _, arg_type in sub_args)}], add=add)'
     
     def parse_subcommands(root_command_name, command_def, args: list[tuple[str, str, str]] = None, format = None):
         if args is None:
@@ -90,7 +130,8 @@ from .mutables import Entities
 
             if isinstance(command_def, Args):
                 for arg_tuple in command_def.arg_strs():
-                    sub_format.append('$arg')
+                    _, _, arg_type = arg_tuple
+                    sub_format.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
                     sub_args.append(arg_tuple)
                 
                 command_def = command_def.next_command_def
@@ -99,11 +140,11 @@ from .mutables import Entities
                 assert is_final(command_def), "Cannot have None as key in non-final context"
 
                 if sub_args:
-                    code.append(f'def __call__(self, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}):')
+                    code.append(f'def __init__(self, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
                 else:
-                    code.append(f'def __call__(self):')
+                    code.append(f'def __init__(self, add=True):')
                 with code:
-                    code.append(f'self._finalize([{", ".join(arg_name for arg_name, _, _ in sub_args)}])')
+                    code.append(f'self.{finalize_call(sub_args)}')
             else:
                 if is_final(command_def):
                     class_name = f"__{pythonize_name(command)}"
@@ -115,6 +156,14 @@ from .mutables import Entities
                     if is_final(command_def):
                         code.append(f"NAME = '{root_command_name}'")
                         code.append(f"FORMAT = {str(sub_format)}")
+                    elif None in command_def.keys():
+                        code.append(f"NAME = '{root_command_name}'")
+                        sub_format_ = sub_format
+                        command_def_ = command_def[None]
+                        if isinstance(command_def_, Args):
+                            for _, _, arg_type in command_def_.arg_strs():
+                                sub_format_.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
+                        code.append(f"FORMAT = {str(sub_format_)}")
 
                     if command_def is None:
                         pass
@@ -126,22 +175,12 @@ from .mutables import Entities
                 if is_final(command_def):
                     code.append(f'@classmethod')
                     if sub_args:
-                        code.append(f'def {pythonize_name(command)}(cls, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}):')
+                        code.append(f'def {pythonize_name(command)}(cls, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
                     else:
-                        code.append(f'def {pythonize_name(command)}(cls):')
+                        code.append(f'def {pythonize_name(command)}(cls, add=True):')
                     with code:
-                        def arg_type_to_str(arg_type, arg_name) -> str:
-                            if isinstance(arg_type, list):
-                                return f'(None if {arg_name} is None else {arg_type_to_str(arg_type[0], arg_name)})'
-                            if arg_type is str:
-                                return f'StrToken({arg_name})'
-                            if arg_type is bool:
-                                return f'BoolToken({arg_name})'
-                            if isinstance(arg_type, Literal):
-                                return f'CommandKeywordToken({arg_name})'
-                            return arg_name
-                            # return f'{arg_type}({arg_name})'  # if casting is necessary
-                        code.append(f'return cls.{class_name}()._finalize([{", ".join(arg_type_to_str(arg_type, arg_name) for arg_name, _, arg_type in sub_args)}])')
+                        
+                        code.append(f'return cls.{class_name}().{finalize_call(sub_args)}')
                     
 
     for command, command_def in COMMANDS.items():
@@ -176,3 +215,7 @@ from .mutables import Entities
             print('done!')
     else:
         print('canceled by user')
+
+
+if __name__ == '__main__':
+    _autogen()

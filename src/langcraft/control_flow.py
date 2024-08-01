@@ -17,7 +17,7 @@ class If(WithStatement):
         self.if_block = Block(*statements)
         self.if_block.clear()
         if self.condition.always_true:
-            self.cmds = self.if_block.get_cmds()
+            self.cmds = self.if_block._get_cmds()
         elif not self.condition.always_false:
             self.cmds += RawExecute.as_cmds(subs=[self.condition], run_statements=self.if_block.statements)
         return self
@@ -26,7 +26,7 @@ class If(WithStatement):
         self.else_block = Block(*statements)
         self.else_block.clear()
         if self.condition.always_false:
-            self.tokens = self.else_block.get_cmds()
+            self.tokens = self.else_block._get_cmds()
         elif not self.condition.always_true:
             self.cmds += RawExecute.as_cmds(subs=[~self.condition], run_statements=self.else_block.statements)
         return self

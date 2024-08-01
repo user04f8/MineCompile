@@ -71,7 +71,7 @@ class Arg(TokensRef):
     def assign(self, val):
         raise NotImplementedError()
 
-    def get_cmds(self):
+    def _get_cmds(self):
         return [TokensContainer(ArgToken(self.ident))]
 
 class Args:
@@ -160,7 +160,7 @@ class Statement(TokensRef):
                 cmds = cmds[1:]
             self.cmds = [TokensContainer(RawToken(cmds))]
         elif isinstance(cmds, Arg):
-            self.cmds = cmds.get_cmds()
+            self.cmds = cmds._get_cmds()
         elif isinstance(cmds, TokenBase):
             self.cmds = [TokensContainer(cmds)]
         elif isinstance(cmds, TokensContainer):
@@ -183,10 +183,10 @@ class Statement(TokensRef):
         else:
             self.idx = None
 
-    def get_cmds(self) -> List[TokensContainer]:
+    def _get_cmds(self) -> List[TokensContainer]:
         return self.cmds
     
-    def clear(self):
+    def _clear(self):
         if self.idx is not None:
             GLOBALS.clear_cmd(self.idx)
 
@@ -213,7 +213,7 @@ class Pass(Statement):
         else:
             self.idx = None
 
-    def get_cmds(self) -> List[TokensContainer]:
+    def _get_cmds(self) -> List[TokensContainer]:
         return [TokensContainer(RawToken(''))]
 
 class WithStatement(Statement, ABC):
@@ -242,8 +242,8 @@ class Block(TokensRef):
     def __init__(self, *statements: Statement | str):
         self.statements = [(Statement(statement) if isinstance(statement, str) else statement) for statement in statements]
 
-    def get_cmds(self) -> List[TokensContainer]:
-        return [cmd for statement in self.statements for cmd in statement.get_cmds()]
+    def _get_cmds(self) -> List[TokensContainer]:
+        return [cmd for statement in self.statements for cmd in statement._get_cmds()]
     
     def cmds_to_global(self):
         for statement in self.statements:
@@ -254,7 +254,7 @@ class Block(TokensRef):
     
     def clear(self):
         for statement in self.statements:
-            statement.clear()
+            statement._clear()
 
 class FunStatement(Statement):
     # noinspection PyMissingConstructor
