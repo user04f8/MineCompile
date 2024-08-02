@@ -1,0 +1,1 @@
+{"$root/test/function/x0": "say here\nsay here again\nfunction test:x0/x0", "$root/test/function/x0/x0": "say there\nexecute if block ~ ~ ~ air run function test:x0", "$root/test/function/caller": "function test:x0", "$hash": "572b8e29564ff9830b58c81296eb3903a4045718ae021a88e7ceaae6031350cb"}

@@ -1,0 +1,1 @@
+{"$root/test/function/x0": "say hi\nfunction test:x0/x0", "$root/test/function/x0/x0": "function test:x0", "$root/test/function/main": "function test:x0\nfunction test:x0/x0", "$hash": "3d943f8b1028e931969fe28ae67af0ef9d98c5f0e44d75b8bae6f7fe1162bb0a"}

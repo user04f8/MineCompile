@@ -1,0 +1,1 @@
+{"$root/test/function/debug": "tellraw @a {\"text\": \"(test:debug)\", \"extra\": [{\"text\": \" <\", \"extra\": [{\"color\": \"aqua\", \"selector\": \"@s\"}, {\"text\": \">\", \"color\": \"gray\"}]}, {\"text\": \" here\"}], \"color\": \"gray\"}", "$hash": "6a39de3553845c6dc2eef928d99fdb6db77c1e72f814b7a48b25aa366a91e835"}

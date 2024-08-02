@@ -308,12 +308,14 @@ class _Relative:
     
     def __neg__(self):
         self.val = -self.val
+        return self
 
     def __sub__(self, val):
         return self + -val
     
     def __round__(self, precision):
         self.val = round(self.val, precision)
+        return self
     
     @staticmethod
     def join(val0, val1):
