@@ -168,7 +168,6 @@ class Condition:
                     case _ConditionType.STR:
                         tokens = [RawToken(self.value)]
                     case _:
-                        self.value = cast(self.value, _OtherCondition)
                         tokens = self.value.sub_tokenize()
                 return [(CommandKeywordToken('unless') if self.inverted else CommandKeywordToken('if')), *tokens]
 

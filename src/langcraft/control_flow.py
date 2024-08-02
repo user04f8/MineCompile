@@ -86,10 +86,11 @@ class Schedule(WithStatement):
         # TODO
 
 class ScoreTree(WithStatement):
-    def __init__(self, score_key: str, cmds_per_score: int = 1, add=True):
+    def __init__(self, score_key: str, cmds_per_score: int = 1, *, leafs_terminal=False, add=True):
         super().__init__([], add=add)
         self.score = Score(objective=score_key)
         self.cmds_per_score = cmds_per_score
+        self.leafs_terminal = leafs_terminal
 
     def __call__(self, *statements: Statement) -> Self:
         n = len(statements)
@@ -102,9 +103,15 @@ class ScoreTree(WithStatement):
             return grouped_statements[0]
         n2 = len(grouped_statements) // 2
         with Fun() as f:
-            If(self.score.in_range(a, a + n2 - 1))(
-                *self._generate_tree(grouped_statements[:n2], a)
-            ).Else(
-                *self._generate_tree(grouped_statements[n2:], a + n2)
-            )
+            if self.leafs_terminal:
+                If(self.score.in_range(a, a + n2 - 1))(
+                    *self._generate_tree(grouped_statements[:n2], a)
+                )
+                self._generate_tree(grouped_statements[n2:], a + n2)
+            else:
+                If(self.score.in_range(a, a + n2 - 1))(
+                    *self._generate_tree(grouped_statements[:n2], a)
+                ).Else(
+                    *self._generate_tree(grouped_statements[n2:], a + n2)
+                )
         return (f(),)

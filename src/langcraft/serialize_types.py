@@ -312,6 +312,9 @@ class _Relative:
     def __sub__(self, val):
         return self + -val
     
+    def __round__(self, precision):
+        self.val = round(self.val, precision)
+    
     @staticmethod
     def join(val0, val1):
         if isinstance(val1, _Relative):
@@ -362,9 +365,9 @@ class Pos(Serializable):
 
     def __str__(self):
         if self._type is None:
-            return ' '.join(str(coord) for coord in self.vec3)
+            return ' '.join(f'{round(coord, 5)}' for coord in self.vec3)
         else:
-            return ' '.join(f'{self._type}{coord if coord else ''}' for coord in self.vec3)
+            return ' '.join(f'{self._type}{round(coord, 5) if coord else ''}' for coord in self.vec3)
 
 
 class Heightmap(StrEnum):

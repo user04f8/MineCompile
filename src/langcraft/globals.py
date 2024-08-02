@@ -39,8 +39,10 @@ class Globals:
         self.resource_hooks = {} # TODO
         self.names: Dict[str, Set[str]] = {}
 
-    def reset(self):
-        self.__init__(namespace=self.namespace)
+    def reset(self, namespace=None):
+        if namespace is None:
+            namespace = self.namespace
+        self.__init__(namespace)
 
     def ref_call(self, caller_ref: Ref, callee_ref: Ref, ref_type: RefFlags = RefFlags.NONE):
         if caller_ref in self.ref_graph:
