@@ -29,16 +29,19 @@ def display(compiled: Dict[str, str], ident: Optional[str] = None, include_subs=
     display_all(displayed)
 
 def display_colored_path(file_path, overwrite_color=None, print=print):
-    root, namespace, *path = file_path.split('/')
-    match path:
-        case ['function', *path]:
-            print(colored(namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'light_cyan'), attrs=['bold', 'underline']))
-        case ['tags', 'function', *path]:
-            print(colored('#' + namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'cyan'), attrs=['bold', 'underline']))
-        case ['tags', *path]:
-            print(colored('#' + namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'cyan'), attrs=['bold', 'underline']))
-        case _:
-            print(colored(file_path, (overwrite_color if overwrite_color else 'blue'), attrs=['bold', 'underline']))
+    if file_path == '$hash':
+        print(colored('$hash', 'yellow', attrs=['bold']))
+    else:
+        root, namespace, *path = file_path.split('/')
+        match path:
+            case ['function', *path]:
+                print(colored(namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'light_cyan'), attrs=['bold', 'underline']))
+            case ['tags', 'function', *path]:
+                print(colored('#' + namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'cyan'), attrs=['bold', 'underline']))
+            case ['tags', *path]:
+                print(colored('#' + namespace + ':' + '/'.join(path), (overwrite_color if overwrite_color else 'cyan'), attrs=['bold', 'underline']))
+            case _:
+                print(colored(file_path, (overwrite_color if overwrite_color else 'blue'), attrs=['bold', 'underline']))
 
 def display_all(compiled=None, programs: Dict[Path, Program] = GLOBALS.programs, root_dir: str = './datapacks/testing/data', debug=True, color=True, optim=True, print=print):
     if compiled is None:
@@ -127,7 +130,7 @@ def display_diff(compiled_a: Dict[str, str], compiled_b: Dict[str, str], width: 
                 i = j = 0
                 lines_a, lines_b = serialized_file_a.split('\n'), serialized_file_b.split('\n')
                 column_a, column_b = [], []
-                MAX_N = 999
+                MAX_N = min(99, max(len(lines_a), len(lines_b)))
                 while i < len(lines_a) and j < len(lines_b):
                     n = 1
                     while lines_a[i] != lines_b[j] and n <= MAX_N:

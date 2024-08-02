@@ -39,7 +39,7 @@ def test(name: str):
                     out['$hash'] = funct_hash
                     if out != validation:
                         cprint('(test auto-updated)', 'dark_grey')
-                        display_diff(out, validation)
+                        display_diff(validation, out)
 
                     with path.open('w') as f:
                         json.dump(out, f)

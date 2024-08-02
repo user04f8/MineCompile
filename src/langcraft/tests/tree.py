@@ -23,6 +23,6 @@ def test1():
             
             with SingleEntity('n', tag='spiral').at_parent() as e:
                 with ScoreTree('t'):
-                    for t in range(4):
+                    for t in range(18):
                         x, y, z = f(t)
                         e.teleport(Pos.relative(x, y, z))
