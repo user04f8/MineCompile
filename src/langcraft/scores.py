@@ -1,10 +1,9 @@
 from typing import Literal, Self, List
 
-from .globals import GLOBALS
 from .serialize import MiscToken, CommandKeywordToken, TokenBase
 from .commands import _OtherCondition, _ConditionType
 from .serialize_types import _SelectorBase, Objective
-
+import langcraft.autogened_commands as mc
 
 class _ScoreOperationCondition(_OtherCondition):
     def __init__(self, target1: _SelectorBase, objective1: Objective, operation: Literal['<', '<=', '=', '>=', '>'],
@@ -34,6 +33,9 @@ class Score:
             objective = Objective(objective)
         self.objective = objective
 
+    def assign(self, val: int):
+        mc.Scoreboard
+
     def in_range(self, low: int | str, high: int | str):
         return _ScoreMatchesCondition(self.target, self.objective, f'{low}..{high}')
 
@@ -53,7 +55,11 @@ class Score:
         return _ScoreOperationCondition(self.target, self.objective, '>=', s.target, s.objective)
 
     def __lt__(self, s: Self):
+        if isinstance(s, int):
+            return _ScoreMatchesCondition(self.target, self.objective, f'..{s-1}')
         return _ScoreOperationCondition(self.target, self.objective, '<', s.target, s.objective)
 
     def __gt__(self, s: Self):
+        if isinstance(s, int):
+            return _ScoreMatchesCondition(self.target, self.objective, f'{s+1}..')
         return _ScoreOperationCondition(self.target, self.objective, '>', s.target, s.objective)

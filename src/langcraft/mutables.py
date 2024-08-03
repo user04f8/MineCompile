@@ -1,26 +1,27 @@
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional
+import re
+from typing import Dict, List, Literal, Optional, overload
 
 from langcraft.globals import GLOBALS
 from langcraft.serialize import TokensContainer
 
 from .json_utils import JSON
-from .serialize import SelectorToken, TokensRef
+from .serialize import SelectorToken, Serializable, TokensRef
 from .base import Fun, Statement, Block, WithStatement, fun
-from .serialize_types import _SELECTOR_TYPE, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, _PlayerSelectorBase, _SinglePlayerSelectorBase, Heightmap, _SliceType
+from .serialize_types import _SelectorType, _Relation, Dimension, _SelectorBase, Pos, ResourceLocation, Rot, _Relative, _SingleSelectorBase, _PlayerSelectorBase, _SinglePlayerSelectorBase, _UUIDSelectorBase, _PlayerNameSelectorBase, Heightmap, _SliceType
 from .commands import RawExecute, ExecuteSub, Teleport, Kill
 from .minecraft_builtins import EntityType
 from .dimension import _Dimension
 
-class _EntityRelative(_Relative):
+class _RelativeFromEntity(_Relative):
     def __init__(self, entity):
         super().__init__()
         self.entity = entity
 
 class Entities(_SelectorBase):
     def __init__(self,
-                 selector_type: _SELECTOR_TYPE = 'e',
+                 selector_type: _SelectorType = 'e',
                  type: EntityType = None,
                  name: str = None,
                  predicate = None,  # TODO add Predicate type
@@ -154,7 +155,7 @@ class Entities(_SelectorBase):
         return self
 
     # position and rotation
-    def teleport(self, loc: Pos | PosRef | Rot | SingleEntity = Pos(), *rotation_args):
+    def teleport(self, loc: Pos | PosRef | Rot | Entity = Pos(), *rotation_args):
         if self._in_with:
             if self.execute_as_fun is not GLOBALS.fun:
                 raise NotImplementedError("Cannot use entity outside of current scope")
@@ -188,31 +189,31 @@ class Entities(_SelectorBase):
         self.teleport(pos_)
     @property
     def x(self):
-        return _EntityRelative(self)
+        return _RelativeFromEntity(self)
     @x.setter
     def x(self, x_):
         self.teleport(Pos(x=x_))
     @property
     def y(self):
-        return _EntityRelative(self)
+        return _RelativeFromEntity(self)
     @y.setter
     def y(self, y_):
         self.teleport(Pos(y=y_))
     @property
     def z(self):
-        return _EntityRelative(self)
+        return _RelativeFromEntity(self)
     @z.setter
     def z(self, z_):
         self.teleport(Pos(z=z_))
     @property
     def yaw(self):
-        return _EntityRelative(self)
+        return _RelativeFromEntity(self)
     @yaw.setter
     def yaw(self, yaw_):
         self.teleport(Rot(yaw=yaw_))
     @property
     def pitch(self):
-        return _EntityRelative(self)
+        return _RelativeFromEntity(self)
     @pitch.setter
     def pitch(self, pitch_):
         self.teleport(Rot(pitch=pitch_))
@@ -265,16 +266,71 @@ class Entities(_SelectorBase):
         
         self(self.execute_as_fun)
 
-class SingleEntity(Entities, _SingleSelectorBase):
-    pass
+type _UUIDstr = str
+class Entity(Entities, _SingleSelectorBase):
+    def from_uuid(uuid: _UUIDstr) -> Entity:
+        class _UUIDEntity(Entity, _UUIDSelectorBase):
+            pass
+        return _UUIDEntity(uuid)
+
+class ScoreHolder(Serializable):
+    @overload
+    def __init__(self, holder: Literal['*'], /): ...
+    @overload
+    def __init__(self, holder: _UUIDstr, /): ...
+    @overload
+    def __init__(self, holder: Entities, /): ...
+    @overload
+    def __init__(self, selector_type: _SelectorType, /,
+                 type: EntityType = None,
+                 name: str = None,
+                 predicate = None,  # TODO add Predicate type
+                 nbt: JSON = None,
+                 selected_item: JSON = None,
+                 distance: float = None,
+                 x: float = None, y: float = None, z: float = None, # xyz start
+                 dx: float = None, dy: float = None, dz: float = None, # (xyz end) - (xyz start) for bbox
+                 x_rotation: _SliceType = None, y_rotation: _SliceType = None,
+                 scores: Dict[str, _SliceType] = None,
+                 tag: str = None,
+                 team: str = None,
+                 limit: int = None,
+                 sort: Literal['nearest', 'furthest', 'random', 'arbitrary'] = None,
+                 level: _SliceType = None,
+                 gamemode: Literal['spectator', 'survival', 'creative', 'adventure'] = None,
+                 advancements: Dict[ResourceLocation, bool | Dict[str, bool]] = None): ...
+    
+    def __init__(self, holder: str | Entities, /, **selector_kwargs):
+        if isinstance(holder, str):
+            if holder == '*':
+                self.holder = '*'
+            elif re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$', re.IGNORECASE).match(holder):
+                self.holder = Entity.from_uuid(holder)
+            elif len(holder) == 1:
+                self.holder = Entity(selector_type=holder, **selector_kwargs)
+                selector_kwargs = {}
+            else:
+                raise ValueError(f'Invalid value for ScoreHolder({holder})')
+        elif isinstance(holder, Entities):
+            self.holder = holder
+        else:
+            raise ValueError(f'Invalid value for ScoreHolder({holder})')
+        
+        assert selector_kwargs == {}, ValueError(f'Unexpected kwargs for ScoreHolder: {selector_kwargs}')
+
+        self.token = self.holder.token
+
 
 class Players(Entities, _PlayerSelectorBase):
     pass
 
-class SinglePlayer(Entities, _SinglePlayerSelectorBase):
-    pass
+class Player(Entities, _SinglePlayerSelectorBase):
+    def from_name(player_name: str) -> Player:
+        class _NamedPlayer(Player, _PlayerNameSelectorBase):
+            pass
+        return _NamedPlayer(player_name)
 
-class SelfEntity(SingleEntity):
+class SelfEntity(Entity):
     def __init__(self,
                  **selector_kwargs
                  ):

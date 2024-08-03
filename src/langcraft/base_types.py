@@ -1,6 +1,7 @@
 from typing import Literal
 
 type ObjectiveName = str
+type ObjectiveCriteria = str  # TODO
 
 class ScoreCompoundCriterion(str):
     pass

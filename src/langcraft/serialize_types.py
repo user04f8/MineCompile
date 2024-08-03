@@ -5,8 +5,9 @@ from termcolor import colored
 
 from .globals import GLOBALS
 from .debug_utils import print_debug
-from .serialize import ResourceLocToken, TokenBase, SelectorToken, Serializable
-from .minecraft_builtins import _BuiltinDimensionLiteral, EntityType
+from .serialize import MiscToken, ResourceLocToken, SelectorToken, Serializable
+from .minecraft_builtins import _BuiltinDimensionLiteral
+from .base_types import ObjectiveName
 
 class JSONText(Serializable):
     def __init__(self, 
@@ -231,13 +232,13 @@ class JSONText(Serializable):
 
         return preview
 
-_SliceType = int | str  # str that is of form #, #.., ..#, or #..#
+type _SliceType = int | str  # str that is of form #, #.., ..#, or #..#
 
-_SELECTOR_TYPE = Literal['s'] | Literal['a'] | Literal['p'] | Literal['e'] | Literal['n'] | Literal['r']
+type _SelectorType = Literal['s'] | Literal['a'] | Literal['p'] | Literal['e'] | Literal['n'] | Literal['r']
 
 class _SelectorBase(Serializable):
     def __init__(self,
-                 selector_type: _SELECTOR_TYPE = 's',
+                 selector_type: _SelectorType = 's',
                  **selector_kwargs):
         selector_kwargs = {key: val for key, val in selector_kwargs.items() if val is not None}
         self.token: SelectorToken = SelectorToken(selector_type, **selector_kwargs)
@@ -259,7 +260,6 @@ class _SingleSelectorBase(_SelectorBase):
                 raise ValueError(f"Non-singular selector token @{self.token.s} with limit={self.token.kwargs['limit']}")
             self.token.kwargs['limit'] = 1
 
-
 class _PlayerSelectorBase(_SelectorBase):
     def __init__(self, s: str | _SelectorBase = 'a', **kwargs) -> None:
         if isinstance(s, _SelectorBase):
@@ -278,7 +278,12 @@ class _SinglePlayerSelectorBase(_PlayerSelectorBase):
             super().__init__(s, **kwargs)
         if self.token.s not in {'p', 'r', 's'}:
             raise ValueError(f"@{self.token.s}: not a player selector token")
-        
+
+class _UUIDSelectorBase(MiscToken):
+    pass
+
+class _PlayerNameSelectorBase(MiscToken):
+    pass
 
 class _Relative:
     def __init__(self, val=None):
@@ -437,7 +442,7 @@ class Dimension(ResourceLocation):
         return ExternalResourceLocation(namespace, dimension_path)
     
 class Objective(Serializable):
-    def __init__(self, name: str | None = None):
+    def __init__(self, name: ObjectiveName | None = None):
         if name is None:
             name = GLOBALS.gen_name('objective')
         self.name = name

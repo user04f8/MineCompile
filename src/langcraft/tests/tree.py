@@ -21,8 +21,8 @@ def test1():
             def f(t: int) -> tuple[float, float, float]:
                 return .8 * t, 3*cos(t * pi/180), 3*sin(t * pi/180)
             
-            with SingleEntity('n', tag='spiral').at_parent() as e:
+            with Entity('n', tag='spiral').at_parent() as e:
                 with ScoreTree('t'):
-                    for t in range(18):
+                    for t in range(20):
                         x, y, z = f(t)
                         e.teleport(Pos.relative(x, y, z))

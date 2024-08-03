@@ -62,6 +62,7 @@ class Do(Statement):
         self.cmds = [FunStatement(f)]
         return self
 
+
 class Schedule(WithStatement):
     def __init__(self, time: int | float, time_type: None | Literal['s'] | Literal['d'] = None, add=True):
         super().__init__([], add=add)
@@ -85,6 +86,7 @@ class Schedule(WithStatement):
         self.cmds = []
         # TODO
 
+
 class ScoreTree(WithStatement):
     def __init__(self, score_key: str, cmds_per_score: int = 1, *, leafs_terminal=False, add=True):
         super().__init__([], add=add)
@@ -92,7 +94,7 @@ class ScoreTree(WithStatement):
         self.cmds_per_score = cmds_per_score
         self.leafs_terminal = leafs_terminal
 
-    def __call__(self, *statements: Statement) -> Self:
+    def __call__(self, *statements: Statement):
         n = len(statements)
         assert n % self.cmds_per_score == 0
         grouped_statements = [statements[i:i+self.cmds_per_score] for i in range(0, n, self.cmds_per_score)]
@@ -115,3 +117,37 @@ class ScoreTree(WithStatement):
                     *self._generate_tree(grouped_statements[n2:], a + n2)
                 )
         return (f(),)
+
+type start = int
+type end = int
+type iter_amt = int
+
+class For(WithStatement):
+    def __init__(self, score_key: str, score_range: start | tuple[start, end] | tuple[start, end, iter_amt], *, add=True):
+        super().__init__([], add=add)
+        self.score = Score(score_key)
+        if isinstance(score_range, int):
+            self.score_start = 0
+            self.score_end = score_range
+            self.iter_by = 1
+        elif len(score_range) == 2:
+            self.score_start, self.score_end = score_range
+            self.iter_by = 1
+        elif len(score_range) == 3:
+            self.score_start, self.score_end, self.iter_by = score_range
+            assert self.iter_by > 0, "iter_amt of score_range = (start, end, iter_amt) must be a positive integer"
+        else:
+            raise TypeError(f'Invalid arg for score_range: {score_range}')
+
+        self.iter_reverse = self.score_start > self.score_end
+
+    def __call__(self, *statements: Statement):
+        self.score.assign(self.score_start)
+        call = Fun()(*statements,
+                     If((self.score < self.score_end) if self.iter_reverse else (self.score > self.score_end))(
+                        # TODO: self.score.add(self.iter_by)
+                     ))
+        call()
+
+with For('x', (10, 20)):
+    pass

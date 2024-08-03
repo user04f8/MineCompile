@@ -229,7 +229,7 @@ class WithStatement(Statement, ABC):
     def add_statement(self, statement: Statement):
         self.args_from_global.append(statement)
 
-    def __call__(self, *args):
+    def __call__(self, *statements: Statement):
         raise NotImplementedError()
 
     def __exit__(self, *args):
