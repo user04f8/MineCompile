@@ -1,0 +1,35 @@
+@subheader'''
+import itertools
+'''
+
+start: file
+
+file[ast.Module]: a=[statements] ENDMARKER { ast.Module(body=a or [], type_ignores=[]) }
+
+statements[list]: a=statement+ { list(itertools.chain.from_iterable(a)) }
+
+statement[list]: a=simple_stmts { a }
+# statement[list]: a=compound_stmt { [a] } | a=simple_stmts { a }
+
+simple_stmts[list]:
+    | a=simple_stmt !';' NEWLINE { [a] } # Not needed, there for speedup
+    | a=';'.simple_stmt+ [';'] NEWLINE { a }
+
+# compound_stmt[list]:
+
+simple_stmt: expr { ast.Expression(expr, lineno=1, col_offset=0) }
+expr: ( expr '+' term { ast.BinOp(expr, ast.Add(), term) }
+      | expr '-' term { ast.BinOp(expr, ast.Sub(), term) }
+      | term { term }
+      )
+term: ( l=term '*' r=factor { ast.BinOp(l, ast.Mult(), r) }
+      | term '/' factor { ast.BinOp(term, ast.Div(), factor) }
+      | factor { factor }
+      )
+factor: ('(' expr ')' { expr }
+        | atom { atom }
+        )
+atom: ( NAME { ast.Name(id=name.string, ctx=ast.Load()) }
+      | NUMBER { ast.Constant(value=ast.literal_eval(number.string)) }
+      | '`' NAME '`' {ast.Constant(value=name.string)}
+      )

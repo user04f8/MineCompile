@@ -1,0 +1,97 @@
+@subheader'''
+import itertools
+
+import malast
+from malast_types import Code
+'''
+
+start: file
+
+file[malast.Module]: a=[statements] ENDMARKER { malast.Module(body=a or []) }
+
+statements[list]: a=statement+ { list(itertools.chain.from_iterable(a)) }
+
+statement[list]: a=simple_stmts { a }
+# statement[list]: a=compound_stmt { [a] } | a=simple_stmts { a }
+
+simple_stmts[list]:
+    | a=simple_stmt !';' NEWLINE { [a] } # Not needed, there for speedup
+    | a=';'.simple_stmt+ [';'] NEWLINE { a }
+
+# compound_stmt[list]:
+
+simple_stmt: 
+      | expression { malast.Expression(expression, lineno=1, col_offset=0) }
+      | 'nop'
+      | &'assert' assert_stmt
+
+assert_stmt[ast.Assert]: 'assert' a=expression b=[',' z=expression { z }] {
+    ast.Assert(test=a, msg=b, LOCATIONS)
+}
+
+expression: expr
+
+expr: ( expr '+' term { malast.BinOp(expr, malast.Add(), term) }
+      | expr '-' term { malast.BinOp(expr, malast.Sub(), term) }
+      | term { term }
+      )
+term: ( l=term '*' r=factor { malast.BinOp(l, malast.Mult(), r) }
+      | term '/' factor { malast.BinOp(term, malast.Div(), factor) }
+      | factor { factor }
+      )
+factor: ('(' expr ')' { expr }
+        | atom { atom }
+        )
+atom:
+    | a=NAME { malast.Name(id=a.string, ctx=malast.Load, LOCATIONS) }
+    | 'True' { malast.Constant(value=True, LOCATIONS) }
+    | 'False' { malast.Constant(value=False, LOCATIONS) }
+    | 'None' { malast.Constant(value=None, LOCATIONS) }
+    | a=STRING { malast.Constant(value=malast.literal_eval(a.string), LOCATIONS) }
+    | a=NUMBER {
+        malast.Constant(value=malast.literal_eval(a.string), LOCATIONS)
+     }
+    # | &'(' (tuple | group | genexp)
+    # | &'[' (list | listcomp)
+    # | &'{' (dict | set | dictcomp | setcomp)
+    | '...' { malast.Constant(value=Ellipsis, LOCATIONS) }
+    | '`' STRING '`' {malast.Constant(value=Code(malast.literal_eval(a.string)), LOCATIONS)}
+
+fstring_mid:
+    | fstring_replacement_field
+    | t=FSTRING_MIDDLE { malast.Constant(value=t.string, LOCATIONS) }
+fstring_replacement_field: # a=(yield_expr | star_expressions)
+    | '{' a=(expr) debug_expr="="? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}' {
+        ast.FormattedValue(
+            value=a,
+            conversion=(
+                conversion.decode()[0]
+                if conversion else
+                (b'r'[0] if debug_expr else -1)
+            ),
+            format_spec=format,
+            LOCATIONS
+        )
+     }
+fstring_conversion[int]:
+    | conv_token="!" conv=NAME { self.check_fstring_conversion(conv_token, conv) }
+fstring_full_format_spec:
+    | ':' spec=fstring_format_spec* {
+        ast.JoinedStr(
+            values=spec if spec and (len(spec) > 1 or spec[0].value) else [],
+            LOCATIONS,
+        )
+     }
+fstring_format_spec:
+    | t=FSTRING_MIDDLE { malast.Constant(value=t.string, LOCATIONS) }
+    | fstring_replacement_field
+fstring:
+    | a=FSTRING_START b=fstring_mid* c=FSTRING_END {
+        ast.JoinedStr(values=b, LOCATIONS)
+     }
+
+strings (memo): a=(fstring|STRING) {
+    malast.Constant(value=malast.literal_eval(a.string), LOCATIONS)
+ }
+
+

@@ -7,7 +7,7 @@ if __name__ == 'langcraft' and len(argv) > 1 and argv[1] == 'build':
 from .dimension import CustomDimensionType, CustomDimension
 from .json_utils import JSONtemplate, JSON, FunctionJSON
 
-import langcraft.autogened_commands as mc
+from .autogened_commands import mc
 
 from .serialize_types import Objective, Pos, Rot, ExternalResourceLocation, Dimension 
 from .scores import Score

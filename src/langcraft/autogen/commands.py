@@ -148,114 +148,119 @@ from __future__ import annotations
 from typing import Optional, Literal, Union
 
 from .commands import StructuredCommand
-
 '''
     )
 
-    code.append(f'__all__ = ({', '.join(f"'{pythonize_name(cmd).capitalize()}'" for cmd in COMMANDS)})')
-    code.newline()
+    code.append(f'class mc:')
+    with code:
+        code.append(f'__slots__ = ({', '.join(f"'{pythonize_name(cmd).capitalize()}'" for cmd in COMMANDS)})')
+        code.newline()
 
-    def is_final(command_def):
-        if command_def is None:
-            return True
-        if isinstance(command_def, dict):
-            return False
-        if isinstance(command_def, Args):
-            return not command_def.next_command_def
-        raise TypeError(type(command_def))
-    
-    def finalize_call(sub_args):
-        return f'_finalize([{", ".join(arg_type_to_str(arg_type, arg_name) for arg_name, _, arg_type in sub_args)}], add=add)'
-    
-    def parse_subcommands(root_command_name, command_def, args: list[tuple[str, str, str]] = None, format = None):
-        if args is None:
-            args = []
-        if format is None:
+        def is_final(command_def):
+            if command_def is None:
+                return True
+            if isinstance(command_def, dict):
+                return False
+            if isinstance(command_def, Args):
+                return not command_def.next_command_def
+            raise TypeError(type(command_def))
+        
+        def finalize_call(sub_args):
+            return f'_finalize([{", ".join(arg_type_to_str(arg_type, arg_name) for arg_name, _, arg_type in sub_args)}], add=add)'
+        
+        def parse_subcommands(root_command_name, command_def, args: list[tuple[str, str, str]] = None, format = None):
+            if args is None:
+                args = []
+            if format is None:
+                format = []
+
+            for command, command_def in command_def.items():
+                sub_args = deepcopy(args)
+                if mc_name(command) is None:
+                    sub_format = deepcopy(format)
+                else:
+                    sub_format = deepcopy(format) + [mc_name(command)]
+
+                if isinstance(command_def, Args):
+                    for arg_tuple in arg_strs(command_def):
+                        _, _, arg_type = arg_tuple
+                        sub_format.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
+                        sub_args.append(arg_tuple)
+                    
+                    command_def = command_def.next_command_def
+
+                if pythonize_name(command) is None:
+                    assert is_final(command_def), "Cannot have None as key in non-final context"
+                
+                    if sub_args:
+                        code.append(f'def __init__(self, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
+                    else:
+                        code.append(f'def __init__(self, add=True):')
+                    with code:
+                        code.append(f'self.{finalize_call(sub_args)}')
+                else:
+                    code.append(f'def __init__(self):')
+                    with code:
+                        code.append(f'raise UserWarning("Invalid use of {command}")')
+
+                    if is_final(command_def):
+                        class_name = f"__{pythonize_name(command)}"
+                        code.append(f"class {class_name}(StructuredCommand):")
+                    else:
+                        class_name = f"{pythonize_name(command)}"
+                        code.append(f"class {class_name}(StructuredCommand):")
+                    with code:
+                        if is_final(command_def):
+                            code.append(f"NAME = '{root_command_name}'")
+                            code.append(f"FORMAT = {str(sub_format)}")
+                        elif None in command_def.keys():
+                            code.append(f"NAME = '{root_command_name}'")
+                            sub_format_ = sub_format
+                            command_def_ = command_def[None]
+                            if isinstance(command_def_, Args):
+                                for arg_type in command_def_.args.keys():
+                                    sub_format_.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
+                            code.append(f"FORMAT = {str(sub_format_)}")
+
+                        if command_def is None:
+                            pass
+                        elif isinstance(command_def, dict):
+                            parse_subcommands(root_command_name, command_def, args=sub_args, format=sub_format)
+                        else:
+                            raise TypeError()
+                    
+                    if is_final(command_def):
+                        code.append(f'@classmethod')
+                        if sub_args:
+                            code.append(f'def {pythonize_name(command)}(cls, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
+                        else:
+                            code.append(f'def {pythonize_name(command)}(cls, add=True):')
+                        with code:
+                            
+                            code.append(f'return cls.{class_name}().{finalize_call(sub_args)}')
+                        
+
+        for command, command_def in COMMANDS.items():
+            class_name = f"{pythonize_name(command).capitalize()}"
+            code.append(f"class {class_name}{('(StructuredCommand)' if is_final(command_def) else '')}:")
             format = []
-
-        for command, command_def in command_def.items():
-            sub_args = deepcopy(args)
-            if mc_name(command) is None:
-                sub_format = deepcopy(format)
-            else:
-                sub_format = deepcopy(format) + [mc_name(command)]
-
+            args = []
+            
             if isinstance(command_def, Args):
                 for arg_tuple in arg_strs(command_def):
-                    _, _, arg_type = arg_tuple
-                    sub_format.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
-                    sub_args.append(arg_tuple)
+                    format.append(None)
+                    args.append(arg_tuple)
                 
                 command_def = command_def.next_command_def
-
-            if pythonize_name(command) is None:
-                assert is_final(command_def), "Cannot have None as key in non-final context"
-
-                if sub_args:
-                    code.append(f'def __init__(self, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
+            with code:
+                if command_def is None:
+                    pass
+                elif isinstance(command_def, dict):
+                    parse_subcommands(command, command_def, args=args, format=format)
                 else:
-                    code.append(f'def __init__(self, add=True):')
-                with code:
-                    code.append(f'self.{finalize_call(sub_args)}')
-            else:
-                if is_final(command_def):
-                    class_name = f"__{pythonize_name(command)}"
-                    code.append(f"class {class_name}(StructuredCommand):")
-                else:
-                    class_name = f"{pythonize_name(command)}"
-                    code.append(f"class {class_name}(StructuredCommand):")
-                with code:
-                    if is_final(command_def):
-                        code.append(f"NAME = '{root_command_name}'")
-                        code.append(f"FORMAT = {str(sub_format)}")
-                    elif None in command_def.keys():
-                        code.append(f"NAME = '{root_command_name}'")
-                        sub_format_ = sub_format
-                        command_def_ = command_def[None]
-                        if isinstance(command_def_, Args):
-                            for arg_type in command_def_.args.keys():
-                                sub_format_.append('$optional_arg' if isinstance(arg_type, list) else '$arg')
-                        code.append(f"FORMAT = {str(sub_format_)}")
-
-                    if command_def is None:
-                        pass
-                    elif isinstance(command_def, dict):
-                        parse_subcommands(root_command_name, command_def, args=sub_args, format=sub_format)
-                    else:
-                        raise TypeError()
+                    raise TypeError()
+            code.newline()
                 
-                if is_final(command_def):
-                    code.append(f'@classmethod')
-                    if sub_args:
-                        code.append(f'def {pythonize_name(command)}(cls, {", ".join(f"{arg_name}: {arg_type_str}" for arg_name, arg_type_str, _ in sub_args)}, add=True):')
-                    else:
-                        code.append(f'def {pythonize_name(command)}(cls, add=True):')
-                    with code:
-                        
-                        code.append(f'return cls.{class_name}().{finalize_call(sub_args)}')
-                    
-
-    for command, command_def in COMMANDS.items():
-        class_name = f"{pythonize_name(command).capitalize()}"
-        code.append(f"class {class_name}{('(StructuredCommand)' if is_final(command_def) else '')}:")
-        format = []
-        args = []
-        
-        if isinstance(command_def, Args):
-            for arg_tuple in arg_strs(command_def):
-                format.append(None)
-                args.append(arg_tuple)
-            
-            command_def = command_def.next_command_def
-        with code:
-            if command_def is None:
-                pass
-            elif isinstance(command_def, dict):
-                parse_subcommands(command, command_def, args=args, format=format)
-            else:
-                raise TypeError()
-        code.newline()
-            
 
     out = str(code)
     print(out)

@@ -1,0 +1,21 @@
+
+# Literals
+
+## Code blocks
+
+Code blocks in the source language can be written within grave marks like so: `print('Hello, world!')`
+
+A language can be specified like so: py`print('Hello, world!')`
+
+Multi-line code blocks: 
+```` 
+```
+print('Hello, world!')
+```
+````
+With language: 
+````
+```py
+print('Hello, world!')
+```
+````
