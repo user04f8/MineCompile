@@ -55,7 +55,7 @@ atom:
     # | &'[' (list | listcomp)
     # | &'{' (dict | set | dictcomp | setcomp)
     | '...' { malast.Constant(value=Ellipsis, LOCATIONS) }
-    | '`' STRING '`' {malast.Constant(value=Code(malast.literal_eval(a.string)), LOCATIONS)}
+    | '__CODE_BLOCK__(' a=STRING ')' {malast.Constant(value=Code(malast.literal_eval(a.string)), LOCATIONS)}
 
 fstring_mid:
     | fstring_replacement_field
