@@ -2,7 +2,7 @@ import ast
 
 from malparse import Parser
 
-EXAMPLE_FILENAME = 'example.mcpy'
+EXAMPLE_FILENAME = 'example.malpy'
 
 class Runtime:
     def __init__(self):
