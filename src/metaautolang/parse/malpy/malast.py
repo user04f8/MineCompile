@@ -3,7 +3,7 @@ import ast
 
 from ast import literal_eval
 
-from ast import Module, Expression, BinOp, Add, Sub, Mult, Div, Name, Constant, Load
+from ast import Module, Expression, BinOp, Add, Sub, Mult, Div, Name, Constant, Load, Store
 
 
 # class CodeLiteral:

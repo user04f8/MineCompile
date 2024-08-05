@@ -1,0 +1,10 @@
+__CODE_BLOCK_OPEN__'hi'__CODE_BLOCK_CLOSE__
+x + 1
+__CODE_BLOCK_OPEN__"print('Hello, world!')\n"__CODE_BLOCK_CLOSE__ * 10
+
+__CODE_BLOCK_OPEN__'for i in range($x$):'__CODE_BLOCK_CLOSE__
+__CODE_BLOCK_OPEN__'   pass'__CODE_BLOCK_CLOSE__
+
+execute = __CODE_BLOCK_OPEN__'execute as @s'__CODE_BLOCK_CLOSE__
+
+execute

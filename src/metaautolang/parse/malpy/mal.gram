@@ -1,0 +1,367 @@
+@subheader'''
+import itertools
+
+import malast
+from malast import Load, Store
+from malast_types import Code
+
+import token
+
+def token_auto():
+    tmp = token.N_TOKENS
+    token.N_TOKENS += 1
+    return tmp
+
+token.EXACT_TOKEN_TYPES.update({
+    '$': token_auto()
+    })
+'''
+
+start: file
+
+file[malast.Module]: a=[statements] ENDMARKER { malast.Module(body=a or []) }
+
+statements[list]: a=statement+ { list(itertools.chain.from_iterable(a)) }
+
+statement[list]: a=simple_stmts { a }
+# statement[list]: a=compound_stmt { [a] } | a=simple_stmts { a }
+
+simple_stmts[list]:
+    | a=simple_stmt !';' NEWLINE { [a] } # Not needed, there for speedup
+    | a=';'.simple_stmt+ [';'] NEWLINE { a }
+
+# compound_stmt[list]:
+
+simple_stmt (memo):
+    | assignment
+#    | &"type" type_alias
+    | e=star_expressions { ast.Expr(value=e, LOCATIONS) }
+#    | &'return' return_stmt
+#    | &('import' | 'from') import_stmt
+#    | &'raise' raise_stmt
+    | 'pass' { ast.Pass(LOCATIONS) }
+#    | &'del' del_stmt
+#    | &'yield' yield_stmt
+#    | &'assert' assert_stmt
+#    | 'break' { ast.Break(LOCATIONS) }
+#    | 'continue' { ast.Continue(LOCATIONS) }
+#    | &'global' global_stmt
+#    | &'nonlocal' nonlocal_stmt
+
+# SIMPLE STATEMENTS
+# =================
+
+assignment:
+    | a=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'=' tc=[TYPE_COMMENT] {
+         ast.Assign(targets=a, value=b, type_comment=tc, LOCATIONS)
+     }
+    | a=single_target b=augassign ~ c=(yield_expr | star_expressions) {
+        ast.AugAssign(target = a, op=b, value=c, LOCATIONS)
+     }
+
+annotated_rhs: yield_expr | star_expressions
+
+augassign:
+    | '+=' { ast.Add() }
+    | '-=' { ast.Sub() }
+    | '*=' { ast.Mult() }
+    | '@=' { self.check_version((3, 5), "The '@' operator is", ast.MatMult()) }
+    | '/=' { ast.Div() }
+    | '%=' { ast.Mod() }
+    | '&=' { ast.BitAnd() }
+    | '|=' { ast.BitOr() }
+    | '^=' { ast.BitXor() }
+    | '<<=' { ast.LShift() }
+    | '>>=' { ast.RShift() }
+    | '**=' { ast.Pow() }
+    | '//=' { ast.FloorDiv() }
+
+# EXPRESSIONS
+# -----------
+
+expressions:
+    | a=expression b=(',' c=expression { c })+ [','] {
+        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
+    | a=expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
+    | expression
+
+expression (memo):
+    | a=disjunction 'if' b=disjunction 'else' c=expression {
+        ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
+     }
+    | disjunction
+#    | lambdef
+
+yield_expr:
+    | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
+    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
+
+star_expressions:
+    | a=star_expression b=(',' c=star_expression { c })+ [','] {
+        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
+    | a=star_expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
+    | star_expression
+
+star_expression (memo):
+    | '*' a=bitwise_or { ast.Starred(value=a, ctx=Load, LOCATIONS) }
+    | expression
+
+star_named_expressions: a=','.star_named_expression+ [','] { a }
+
+star_named_expression:
+    | '*' a=bitwise_or { ast.Starred(value=a, ctx=Load, LOCATIONS) }
+    | named_expression
+
+assignment_expression:
+    | a=NAME ':=' ~ b=expression {
+        self.check_version(
+            (3, 8),
+            "The ':=' operator is",
+            ast.NamedExpr(
+                target=ast.Name(
+                    id=a.string,
+                    ctx=Store,
+                    lineno=a.start[0],
+                    col_offset=a.start[1],
+                    end_lineno=a.end[0],
+                    end_col_offset=a.end[1]
+                ),
+                value=b,
+                LOCATIONS,
+            )
+        )
+     }
+
+named_expression:
+    | assignment_expression
+    | a=expression !':=' { a }
+
+disjunction (memo):
+    | a=conjunction b=('or' c=conjunction { c })+ { ast.BoolOp(op=ast.Or(), values=[a] + b, LOCATIONS) }
+    | conjunction
+
+conjunction (memo):
+    | a=inversion b=('and' c=inversion { c })+ { ast.BoolOp(op=ast.And(), values=[a] + b, LOCATIONS) }
+    | inversion
+
+inversion (memo):
+    | 'not' a=inversion { ast.UnaryOp(op=ast.Not(), operand=a, LOCATIONS) }
+    | comparison
+
+comparison:
+    # | a=bitwise_or b=compare_op_bitwise_or_pair+ {
+    #     ast.Compare(left=a, ops=self.get_comparison_ops(b), comparators=self.get_comparators(b), LOCATIONS)
+    #  }
+    | bitwise_or
+
+# ASSIGNMENT TARGETS
+# ==================
+
+# Generic targets
+# ---------------
+
+# NOTE: star_targets may contain *bitwise_or, targets may not.
+star_targets:
+    | a=star_target !',' { a }
+    | a=star_target b=(',' c=star_target { c })* [','] {
+        ast.Tuple(elts=[a] + b, ctx=Store, LOCATIONS)
+     }
+
+star_targets_list_seq[list]: a=','.star_target+ [','] { a }
+
+star_targets_tuple_seq[list]:
+    | a=star_target b=(',' c=star_target { c })+ [','] { [a] + b }
+    | a=star_target ',' { [a] }
+
+star_target (memo):
+    | '*' a=(!'*' star_target) {
+        ast.Starred(value=self.set_expr_context(a, Store), ctx=Store, LOCATIONS)
+     }
+    | target_with_star_atom
+
+target_with_star_atom (memo):
+    | a=t_primary '.' b=NAME !t_lookahead { ast.Attribute(value=a, attr=b.string, ctx=Store, LOCATIONS) }
+    | a=t_primary '[' b=slices ']' !t_lookahead { ast.Subscript(value=a, slice=b, ctx=Store, LOCATIONS) }
+    | star_atom
+
+star_atom:
+    | a=NAME { ast.Name(id=a.string, ctx=Store, LOCATIONS) }
+    | '(' a=target_with_star_atom ')' { self.set_expr_context(a, Store) }
+    | '(' a=[star_targets_tuple_seq] ')' { ast.Tuple(elts=a, ctx=Store, LOCATIONS) }
+    | '[' a=[star_targets_list_seq] ']' {  ast.List(elts=a, ctx=Store, LOCATIONS) }
+
+single_target:
+    | single_subscript_attribute_target
+    | a=NAME { ast.Name(id=a.string, ctx=Store, LOCATIONS) }
+    | '(' a=single_target ')' { a }
+
+single_subscript_attribute_target:
+    | a=t_primary '.' b=NAME !t_lookahead { ast.Attribute(value=a, attr=b.string, ctx=Store, LOCATIONS) }
+    | a=t_primary '[' b=slices ']' !t_lookahead { ast.Subscript(value=a, slice=b, ctx=Store, LOCATIONS) }
+
+
+t_primary:
+    | a=t_primary '.' b=NAME &t_lookahead { ast.Attribute(value=a, attr=b.string, ctx=Load, LOCATIONS) }
+    | a=t_primary '[' b=slices ']' &t_lookahead { ast.Subscript(value=a, slice=b, ctx=Load, LOCATIONS) }
+    # | a=t_primary b=genexp &t_lookahead { ast.Call(func=a, args=[b], keywords=[], LOCATIONS) }
+    # | a=t_primary '(' b=[arguments] ')' &t_lookahead {
+    #    ast.Call(
+    #        func=a,
+    #        args=b[0] if b else [],
+    #        keywords=b[1] if b else [],
+    #        LOCATIONS,
+    #    )
+    # }
+    | a=atom &t_lookahead { a }
+
+t_lookahead: '(' | '[' | '.'
+
+expression (memo):
+    # | a=disjunction 'if' b=disjunction 'else' c=expression {
+    #     ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
+    #  }
+    | disjunction
+    # | lambdef
+    
+# Logical operators
+# -----------------
+
+bitwise_or:
+    | a=bitwise_or '|' b=bitwise_xor { ast.BinOp(left=a, op=ast.BitOr(), right=b, LOCATIONS) }
+    | bitwise_xor
+
+bitwise_xor:
+    | a=bitwise_xor '^' b=bitwise_and { ast.BinOp(left=a, op=ast.BitXor(), right=b, LOCATIONS) }
+    | bitwise_and
+
+bitwise_and:
+    | a=bitwise_and '&' b=shift_expr { ast.BinOp(left=a, op=ast.BitAnd(), right=b, LOCATIONS) }
+    | shift_expr
+
+shift_expr:
+    | a=shift_expr '<<' b=sum { ast.BinOp(left=a, op=ast.LShift(), right=b, LOCATIONS) }
+    | a=shift_expr '>>' b=sum { ast.BinOp(left=a, op=ast.RShift(), right=b, LOCATIONS) }
+    | sum
+
+# Arithmetic operators
+# --------------------
+
+sum:
+    | a=sum '+' b=term { ast.BinOp(left=a, op=ast.Add(), right=b, LOCATIONS) }
+    | a=sum '-' b=term { ast.BinOp(left=a, op=ast.Sub(), right=b, LOCATIONS) }
+    | term
+
+term:
+    | a=term '*' b=factor { ast.BinOp(left=a, op=ast.Mult(), right=b, LOCATIONS) }
+    | a=term '/' b=factor { ast.BinOp(left=a, op=ast.Div(), right=b, LOCATIONS) }
+    | a=term '//' b=factor { ast.BinOp(left=a, op=ast.FloorDiv(), right=b, LOCATIONS) }
+    | a=term '%' b=factor { ast.BinOp(left=a, op=ast.Mod(), right=b, LOCATIONS) }
+    | a=term '@' b=factor {
+        self.check_version((3, 5), "The '@' operator is", ast.BinOp(left=a, op=ast.MatMult(), right=b, LOCATIONS))
+     }
+    | factor
+
+factor (memo):
+    | '+' a=factor { ast.UnaryOp(op=ast.UAdd(), operand=a, LOCATIONS) }
+    | '-' a=factor { ast.UnaryOp(op=ast.USub(), operand=a, LOCATIONS) }
+    | '~' a=factor { ast.UnaryOp(op=ast.Invert(), operand=a, LOCATIONS) }
+    | power
+
+power:
+    | a=await_primary '**' b=factor { ast.BinOp(left=a, op=ast.Pow(), right=b, LOCATIONS) }
+    | await_primary
+
+
+# Function stuff
+# --------------
+
+starred_expression:
+    | '*' a=expression { ast.Starred(value=a, ctx=Load, LOCATIONS) }
+    | '*' { self.raise_syntax_error("Invalid star expression") }
+
+# Primary elements
+# ----------------
+
+# Primary elements are things like "obj.something.something", "obj[something]", "obj(something)", "obj" ...
+
+await_primary (memo):
+    | 'await' a=primary { self.check_version((3, 5), "Await expressions are", ast.Await(a, LOCATIONS)) }
+    | primary
+
+primary:
+    | a=primary '.' b=NAME { ast.Attribute(value=a, attr=b.string, ctx=Load, LOCATIONS) }
+    # | a=primary b=genexp { ast.Call(func=a, args=[b], keywords=[], LOCATIONS) }
+    # | a=primary '(' b=[arguments] ')' {
+    #    ast.Call(
+    #        func=a,
+    #        args=b[0] if b else [],
+    #        keywords=b[1] if b else [],
+    #        LOCATIONS,
+    #    )
+    # }
+    | a=primary '[' b=slices ']' { ast.Subscript(value=a, slice=b, ctx=Load, LOCATIONS) }
+    | atom
+
+slices:
+    | a=slice !',' { a }
+    | a=','.(slice | starred_expression)+ [','] {
+        ast.Tuple(elts=a, ctx=Load, LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        (
+            ast.ExtSlice(dims=a, LOCATIONS)
+            if any(isinstance(e, ast.Slice) for e in a) else
+            ast.Index(value=ast.Tuple(elts=[e.value for e in a], ctx=Load, LOCATIONS), LOCATIONS)
+        )
+     }
+
+slice:
+    | a=[expression] ':' b=[expression] c=[':' d=[expression] { d }] {
+        ast.Slice(lower=a, upper=b, step=c, LOCATIONS)
+     }
+    | a=named_expression {
+        a
+        if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else
+        ast.Index(
+            value=a,
+            lineno=a.lineno,
+            col_offset=a.col_offset,
+            end_lineno=a.end_lineno,
+            end_col_offset=a.end_col_offset
+        )
+     }
+
+atom:
+    | a=NAME { ast.Name(id=a.string, ctx=Load, LOCATIONS) }
+    | 'True' {
+        ast.Constant(value=True, LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        ast.Constant(value=True, kind=None, LOCATIONS)
+     }
+    | 'False' {
+        ast.Constant(value=False, LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        ast.Constant(value=False, kind=None, LOCATIONS)
+     }
+    | 'None' {
+        ast.Constant(value=None, LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        ast.Constant(value=None, kind=None, LOCATIONS)
+     }
+    | a=STRING {
+        ast.Constant(value=ast.literal_eval(a.string), kind=None, LOCATIONS)
+    }
+    | a=NUMBER {
+        ast.Constant(value=ast.literal_eval(a.string), LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        ast.Constant(value=ast.literal_eval(a.string), kind=None, LOCATIONS)
+     }
+    # | &'(' (tuple | group | genexp)
+    # | &'[' (list | listcomp)
+    # | &'{' (dict | set | dictcomp | setcomp)
+    | '...' {
+        ast.Constant(value=Ellipsis, LOCATIONS)
+        if sys.version_info >= (3, 9) else
+        ast.Constant(value=Ellipsis, kind=None, LOCATIONS)
+     }
+    | '__CODE_BLOCK_OPEN__' a=STRING '__CODE_BLOCK_CLOSE__' {malast.Constant(value=Code(malast.literal_eval(a.string)), LOCATIONS)}
+    
