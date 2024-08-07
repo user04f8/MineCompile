@@ -36,7 +36,7 @@ class Parser:
             tree = parser.start()
 
         if not tree:
-            err = parser.make_syntax_error('', filename=filename)
+            err = parser.make_syntax_error(filename)
             traceback.print_exception(err.__class__, err, None)
             sys.exit(1)
 

@@ -1,11 +1,22 @@
+`# BEGIN CODE:`
+``
+``
+x = 10
+hello_world = `print('Hello, world!')`
+
 `hi`
-x + 1
-`print('Hello, world!')
-` * 10
+(hello_world + `
+`) * x
 
 `for i in range($x$):`
-`   pass`
+`    ` + `pass`
 
-execute = `execute as @s`
+cmd = `my favorite number is `
 
-execute
+for i in range(5):
+    cmd + i
+
+# tp_pigs_to = lambda x, y, z: `tp @e[type=pig] ` + x + ` ` + y + ` ` + z
+# def tp_pigs_to(x, y, z):
+#     return `tp @e[type=pig] ` + x + ` ` + y + ` ` + z
+

@@ -4,22 +4,22 @@ from typing import Any
 from malparse import Parser
 from malast_types import Code
 
-type Variables = dict[str, Any]
+type Globals = dict[str, Any]
 
 class Runtime:
     def __init__(self):
-        self.variables: Variables = {}
+        self.globals: Globals = {} | globals()
 
     def __str__(self):
-        return str(self.variables)
+        return str(self.globals)
 
     def get_variable(self, name):
-        return self.variables.get(name)
+        return self.globals.get(name)
 
     def set_variable(self, name, value):
-        self.variables[name] = value
+        self.globals[name] = value
 
-def replace_variables(code: str, variables: Variables):
+def postprocess_generated(code: str, variables: Globals):
     for key, value in variables.items():
         code = code.replace(f"${key}$", str(value))
     return code
@@ -30,18 +30,14 @@ class Interpreter(ast.NodeVisitor):
         self.runtime = Runtime()
         self.debug = debug
 
-    def visit(self, node):
-        if self.debug:
-            print(f"Visiting node: {node})")
-        return super().visit(node)
-
     def generic_visit(self, node):
         if self.debug:
             if node is None:
                 print("Encountered a None node")
             else:
                 print(f"Generic visit: {node}")
-        return super().generic_visit(node)
+        return eval(compile(ast.Expression(body=node), '<malpy>', mode='eval'), self.runtime.globals)
+        # return super().generic_visit(node)
 
     def visit_Module(self, node):
         for stmt in node.body:
@@ -55,14 +51,18 @@ class Interpreter(ast.NodeVisitor):
     def visit_BinOp(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        # if isinstance(node.op, ast.Add):
-        #     return left + right
-        # elif isinstance(node.op, ast.Mult):
-        #     return left * right
+        if isinstance(node.op, ast.Add):
+            return left + right
+        elif isinstance(node.op, ast.Mult):
+            return left * right
         return self.generic_visit(node)
 
     def visit_Name(self, node):
-        return self.runtime.get_variable(node.id)
+        value = self.runtime.get_variable(node.id)
+        if value is not None:
+            return value
+        return eval(node.id, self.runtime.globals)
+        # return eval(compile(ast.Expression(body=node), '<malpy>', mode='eval'), self.runtime.globals)
 
     def visit_Constant(self, node):
         return node.value
@@ -95,10 +95,27 @@ class Interpreter(ast.NodeVisitor):
             for stmt in node.orelse:
                 self.visit(stmt)
 
+    def visit_For(self, node):
+        for value in self.visit(node.iter):
+            self.runtime.set_variable(node.target.id, value)
+            print(f'set var {node.target.id}={value}')
+            for stmt in node.body:
+                self.visit(stmt)
+        else:
+            for stmt in node.orelse:
+                self.visit(stmt)
+
+    def visit_Call(self, node: ast.Call):
+        return self.visit(node.func)(*(self.visit(arg) for arg in node.args), **{keyword.arg: self.visit(keyword.value) for keyword in node.keywords})
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
+        
+            node.args.posonlyargs
+
     def generate_code(self, node):
         self.visit(node)
         out = '\n'.join(self.output)
-        out = replace_variables(out, self.runtime.variables)
+        out = postprocess_generated(out, self.runtime.globals)
         return out
 
 def parse_interp(filename):
@@ -108,8 +125,7 @@ def parse_interp(filename):
 
     tree = parser.parse(code, filename, debug=1)
 
-    code_generator = Interpreter(debug=False)
-    code_generator.runtime.set_variable('x', 1)
+    code_generator = Interpreter(debug=True)
 
     # Generate code
     generated_code = code_generator.generate_code(tree)
