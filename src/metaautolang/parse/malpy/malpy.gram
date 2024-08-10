@@ -1529,7 +1529,7 @@ atom:
         if sys.version_info >= (3, 9) else
         ast.Constant(value=Ellipsis, kind=None, LOCATIONS)
      }
-    | '__CODE_BLOCK_OPEN__' a=STRING '__CODE_BLOCK_CLOSE__' {ast.Constant(value=Code(ast.literal_eval(a.string)), LOCATIONS)}
+    | '__CODE_BLOCK_OPEN__' a=STRING '__CODE_BLOCK_CLOSE__' {ast.Call(func=ast.Name(id='__CODE__', ctx=Load, LOCATIONS), args=[ast.Constant(value=ast.literal_eval(a.string), LOCATIONS)], LOCATIONS)}
 
 group:
     | '(' a=(yield_expr | named_expression) ')' { a }

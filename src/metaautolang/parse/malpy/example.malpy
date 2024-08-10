@@ -1,22 +1,2 @@
-`# BEGIN CODE:`
-``
-``
-x = 10
-hello_world = `print('Hello, world!')`
-
-`hi`
-(hello_world + `
-`) * x
-
-`for i in range($x$):`
-`    ` + `pass`
-
-cmd = `my favorite number is `
-
-for i in range(5):
-    cmd + i
-
-# tp_pigs_to = lambda x, y, z: `tp @e[type=pig] ` + x + ` ` + y + ` ` + z
-# def tp_pigs_to(x, y, z):
-#     return `tp @e[type=pig] ` + x + ` ` + y + ` ` + z
-
+for i in range(10):
+    `Hi!`

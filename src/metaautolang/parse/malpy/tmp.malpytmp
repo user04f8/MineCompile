@@ -1,20 +1,2 @@
-__CODE_BLOCK_OPEN__'# BEGIN CODE:'__CODE_BLOCK_CLOSE__
-__CODE_BLOCK_OPEN__''__CODE_BLOCK_CLOSE__
-__CODE_BLOCK_OPEN__''__CODE_BLOCK_CLOSE__
-x = 10
-hello_world = __CODE_BLOCK_OPEN__"print('Hello, world!')"__CODE_BLOCK_CLOSE__
-
-__CODE_BLOCK_OPEN__'hi'__CODE_BLOCK_CLOSE__
-(hello_world + __CODE_BLOCK_OPEN__'\n'__CODE_BLOCK_CLOSE__) * x
-
-__CODE_BLOCK_OPEN__'for i in range($x$):'__CODE_BLOCK_CLOSE__
-__CODE_BLOCK_OPEN__'    '__CODE_BLOCK_CLOSE__ + __CODE_BLOCK_OPEN__'pass'__CODE_BLOCK_CLOSE__
-
-cmd = __CODE_BLOCK_OPEN__'my favorite number is '__CODE_BLOCK_CLOSE__
-
-tp_pigs_to = lambda x, y, z: __CODE_BLOCK_OPEN__'tp @e[type=pig] '__CODE_BLOCK_CLOSE__ + x + __CODE_BLOCK_OPEN__' '__CODE_BLOCK_CLOSE__ + y + __CODE_BLOCK_OPEN__' '__CODE_BLOCK_CLOSE__ + z
-# def tp_pigs_to(x, y, z):
-#     return __CODE_BLOCK_OPEN__'tp @e[type=pig] '__CODE_BLOCK_CLOSE__ + x + __CODE_BLOCK_OPEN__' '__CODE_BLOCK_CLOSE__ + y + __CODE_BLOCK_OPEN__' '__CODE_BLOCK_CLOSE__ + z
-
-for i in range(5):
-    cmd + i
+for i in range(10):
+    __CODE_BLOCK_OPEN__'Hi!'__CODE_BLOCK_CLOSE__
