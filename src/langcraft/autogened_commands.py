@@ -382,4 +382,3 @@ class mc:
                 @classmethod
                 def styled(cls, targets: langcraft.mutables.Entities, objective: ObjectiveName, style: langcraft.serialize_types.JSONText, add=True):
                     return cls.__styled()._finalize([MiscToken(targets), MiscToken(objective), MiscToken(style)], add=add)
-

@@ -1,2 +1,15 @@
 for i in range(10):
-    `Hi!`
+    `x`
+
+`y`
+
+i = 0
+
+def f():
+    global i
+    `ajsfdkljdsfkl`
+    i += 1
+    if i < 10:
+        f()
+
+f()
