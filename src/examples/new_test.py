@@ -16,4 +16,4 @@ def slow():
     mc.Effect.give(SelfEntity(), 'absorption')
 
 
-display_all(optim=False)
+display_all()
