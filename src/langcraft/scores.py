@@ -3,7 +3,7 @@ from typing import Literal, Self, List
 from .serialize import MiscToken, CommandKeywordToken, TokenBase
 from .commands import _OtherCondition, _ConditionType
 from .serialize_types import _SelectorBase, Objective
-import langcraft.autogened_commands as mc
+from .autogened_commands import mc
 
 class _ScoreOperationCondition(_OtherCondition):
     def __init__(self, target1: _SelectorBase, objective1: Objective, operation: Literal['<', '<=', '=', '>=', '>'],

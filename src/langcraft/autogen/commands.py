@@ -153,7 +153,7 @@ from .commands import StructuredCommand
 
     code.append(f'class mc:')
     with code:
-        code.append(f'__slots__ = ({', '.join(f"'{pythonize_name(cmd).capitalize()}'" for cmd in COMMANDS)})')
+        # code.append(f'__slots__ = ({', '.join(f"'{pythonize_name(cmd).capitalize()}'" for cmd in COMMANDS)})')
         code.newline()
 
         def is_final(command_def):
