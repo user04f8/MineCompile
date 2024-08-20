@@ -23,6 +23,7 @@ from typing import (
 
 from malast_types import Code
 
+"""
 import token
 
 def token_auto():
@@ -33,6 +34,7 @@ def token_auto():
 token.EXACT_TOKEN_TYPES.update({
     '$': token_auto()
     })
+"""
 
 # END CUSTOM MAL TOKENS
 
@@ -763,7 +765,7 @@ class MALpyParser(Parser):
 
     @memoize
     def simple_stmt(self) -> Optional[Any]:
-        # simple_stmt: assignment | &"type" type_alias | star_expressions | &'return' return_stmt | &('import' | 'from') import_stmt | &'raise' raise_stmt | 'pass' | &'del' del_stmt | &'yield' yield_stmt | &'assert' assert_stmt | 'break' | 'continue' | &'global' global_stmt | &'nonlocal' nonlocal_stmt
+        # simple_stmt: assignment | &"__HOOK__" hook_assignment | "__HOOK__" NAME | &"type" type_alias | star_expressions | &'return' return_stmt | &('import' | 'from') import_stmt | &'raise' raise_stmt | 'pass' | &'del' del_stmt | &'yield' yield_stmt | &'assert' assert_stmt | 'break' | 'continue' | &'global' global_stmt | &'nonlocal' nonlocal_stmt
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
@@ -771,6 +773,22 @@ class MALpyParser(Parser):
             (assignment := self.assignment())
         ):
             return assignment;
+        self._reset(mark)
+        if (
+            (self.positive_lookahead(self.expect, "__HOOK__"))
+            and
+            (hook_assignment := self.hook_assignment())
+        ):
+            return hook_assignment;
+        self._reset(mark)
+        if (
+            (self.expect("__HOOK__"))
+            and
+            (id := self.name())
+        ):
+            tok = self._tokenizer.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end
+            return ast . Expr ( value = ast . Call ( func = ast . Name ( id = '__HOOK__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [ast . Constant ( value = id . string , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (self.positive_lookahead(self.expect, "type"))
@@ -3755,6 +3773,32 @@ class MALpyParser(Parser):
         ):
             return a;
         self._reset(mark)
+        return None;
+
+    @memoize
+    def hook_assignment(self) -> Optional[Any]:
+        # hook_assignment: "__HOOK__" NAME '=' ~ expression
+        mark = self._mark()
+        tok = self._tokenizer.peek()
+        start_lineno, start_col_offset = tok.start
+        cut = False
+        if (
+            (self.expect("__HOOK__"))
+            and
+            (a := self.name())
+            and
+            (self.expect('='))
+            and
+            (cut := True)
+            and
+            (b := self.expression())
+        ):
+            tok = self._tokenizer.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end
+            return ast . Expr ( value = ast . Call ( func = ast . Name ( id = '__HOOK__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [ast . Constant ( value = a . string , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , ast . NamedExpr ( target = ast . Name ( id = a . string , ctx = Store , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
+        self._reset(mark)
+        if cut:
+            return None;
         return None;
 
     @memoize
@@ -11865,7 +11909,7 @@ class MALpyParser(Parser):
         return None;
 
     KEYWORDS = ('False', 'None', 'True', '__CODE_BLOCK_CLOSE__', '__CODE_BLOCK_OPEN__', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield')
-    SOFT_KEYWORDS = ('_', 'case', 'match', 'type')
+    SOFT_KEYWORDS = ('_', '__HOOK__', 'case', 'match', 'type')
 
 
 if __name__ == '__main__':

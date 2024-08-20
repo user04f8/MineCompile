@@ -6,7 +6,7 @@ import token
 # example usage:
 # python test.py malpy.gram
 
-EXAMPLE_FILENAME = r'example.malpy'
+EXAMPLE_FILENAME = r'example.mal'
 
 if __name__ == '__main__':
     try:

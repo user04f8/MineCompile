@@ -2,7 +2,7 @@ from __future__ import annotations
 
 class Code(str):
     def __add__(self, other):
-        if isinstance(other, Code):
+        if isinstance(other, Code) or isinstance(other, str):
             return Code(super().__add__(other))
         else:
             return Code(super().__add__(repr(other)))
@@ -21,3 +21,10 @@ class Code(str):
 
     def __repr__(self):
         return f'Code({super().__repr__()})'
+
+class CodeHook:
+    def __init__(self, ident):
+        self.ident = ident
+    
+    def __repr__(self):
+        return f'${self.ident}'

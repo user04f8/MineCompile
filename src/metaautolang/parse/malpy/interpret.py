@@ -2,7 +2,7 @@ import ast
 from typing import Any
 
 from malparse import Parser
-from malast_types import Code
+from malast_types import Code, CodeHook
 
 type Globals = dict[str, Any]
 
@@ -18,19 +18,21 @@ class Runtime:
             if isinstance(value, Code):
                 self.output.append(str(value))
             return value
+        
+        def add_hook(hook_id, assignment_value=None):
+            # NOTE: assignment_value appears to do nothing but is relied on existing from the malpy.gram parser
+            self.output.append(CodeHook(hook_id))
+
         self.globals: Globals = {
             '__CODE__': __CODE__,
+            '__HOOK__': add_hook,
             OUTPUT_CATCH_IDENT: add_to_output_if_code
         }
 
     def __str__(self):
         return str(self.globals)
 
-    def get_variable(self, name):
-        return self.globals.get(name)
-
-    def set_variable(self, name, value):
-        self.globals[name] = value
+    
 
 def postprocess_generated(code: str, variables: Globals):
     for key, value in variables.items():
@@ -46,6 +48,23 @@ class CodeTransformer(ast.NodeTransformer):
         ast.fix_missing_locations(transformed_tree)
         code = compile(transformed_tree, filename="<malpy>", mode="exec")
         exec(code, self.runtime.globals)
+
+        print(self.runtime.output)
+
+        for i, out in enumerate(self.runtime.output):
+            if isinstance(out, str):
+                pass
+            elif isinstance(out, CodeHook):
+                val = self.runtime.globals.get(out.ident)
+                if val is None:
+                    self.runtime.output[i] = ''
+                else:
+                    self.runtime.output[i] = val
+            else:
+                raise TypeError()
+            
+        print(self.runtime.output)
+
         return '\n'.join(self.runtime.output)
 
     def visit_Expr(self, node):

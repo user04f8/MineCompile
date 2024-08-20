@@ -1,17 +1,24 @@
+# TODO
+'''
+folder ..out
+file example.py
+'''
+
+__HOOK__ headers
+headers = __CODE_BLOCK_OPEN__'say Conditions: '__CODE_BLOCK_CLOSE__
 
 
-for i in range(10):
-    __CODE_BLOCK_OPEN__'print("Hi!")'__CODE_BLOCK_CLOSE__
+def say(x: str):
+    return __CODE_BLOCK_OPEN__'say '__CODE_BLOCK_CLOSE__ + x 
 
-__CODE_BLOCK_OPEN__'print("Bye!")'__CODE_BLOCK_CLOSE__
+def if_(c: str, s):
+    headers = headers + c + ', '
+    return __CODE_BLOCK_OPEN__'execute if '__CODE_BLOCK_CLOSE__ + c + __CODE_BLOCK_OPEN__' run '__CODE_BLOCK_CLOSE__ + s
 
-i = 0
 
-def f():
-    global i
-    __CODE_BLOCK_OPEN__'ajsfdkljdsfkl'__CODE_BLOCK_CLOSE__
-    i += 1
-    if i < 10:
-        f()
+say('hi')
 
-f()
+if_('block ~ ~ ~ air', say('bye'))
+
+headers = headers + ' test '
+

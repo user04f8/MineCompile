@@ -17,6 +17,7 @@ from typing import (
 
 from malast_types import Code
 
+"""
 import token
 
 def token_auto():
@@ -27,6 +28,7 @@ def token_auto():
 token.EXACT_TOKEN_TYPES.update({
     '$': token_auto()
     })
+"""
 
 # END CUSTOM MAL TOKENS
 
@@ -610,6 +612,17 @@ simple_stmts[list]:
 # will throw a SyntaxError.
 simple_stmt (memo):
     | assignment
+    | &"__HOOK__" hook_assignment
+    | "__HOOK__" id=NAME {
+        ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id='__HOOK__', ctx=Load, LOCATIONS),
+                args=[ast.Constant(value=id.string, LOCATIONS)],
+                LOCATIONS
+            ),
+            LOCATIONS
+        )
+    }
     | &"type" type_alias
     | e=star_expressions { ast.Expr(value=e, LOCATIONS) }
     | &'return' return_stmt
@@ -1354,6 +1367,32 @@ named_expression:
     | invalid_named_expression
     | a=expression !':=' { a }
 
+hook_assignment:
+    | "__HOOK__" a=NAME '=' ~ b=expression {
+        ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id='__HOOK__', ctx=Load, LOCATIONS),
+                args=[
+                    ast.Constant(value=a.string, LOCATIONS),
+                    ast.NamedExpr(
+                        target=ast.Name(
+                            id=a.string,
+                            ctx=Store,
+                            lineno=a.start[0],
+                            col_offset=a.start[1],
+                            end_lineno=a.end[0],
+                            end_col_offset=a.end[1]
+                        ),
+                        value=b,
+                        LOCATIONS,
+                    )
+                    ],
+                LOCATIONS
+            ),
+            LOCATIONS
+        )
+     }
+
 disjunction (memo):
     | a=conjunction b=('or' c=conjunction { c })+ { ast.BoolOp(op=ast.Or(), values=[a] + b, LOCATIONS) }
     | conjunction
@@ -1529,7 +1568,12 @@ atom:
         if sys.version_info >= (3, 9) else
         ast.Constant(value=Ellipsis, kind=None, LOCATIONS)
      }
-    | '__CODE_BLOCK_OPEN__' a=STRING '__CODE_BLOCK_CLOSE__' {ast.Call(func=ast.Name(id='__CODE__', ctx=Load, LOCATIONS), args=[ast.Constant(value=ast.literal_eval(a.string), LOCATIONS)], LOCATIONS)}
+    | '__CODE_BLOCK_OPEN__' a=STRING '__CODE_BLOCK_CLOSE__' {
+        ast.Call(
+            func=ast.Name(id='__CODE__', ctx=Load, LOCATIONS),
+            args=[ast.Constant(value=ast.literal_eval(a.string), LOCATIONS)],
+            LOCATIONS)
+        }
 
 group:
     | '(' a=(yield_expr | named_expression) ')' { a }

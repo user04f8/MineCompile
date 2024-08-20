@@ -21,3 +21,11 @@ class Code(str):
 
     def __repr__(self):
         return f'Code({super().__repr__()})'
+
+class CodeHook:
+    def __init(self, ident):
+        self.ident = ident
+
+    def __repr__(self):
+        return f'CodeHook({self.ident})'
+
