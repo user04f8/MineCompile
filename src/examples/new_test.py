@@ -16,7 +16,7 @@ def slow():
     with Entities(type='pig') as e:
         e.teleport(Pos.relative(y=3))
 
-    mc.Effect.give(Entities(distance=5), '')
+    mc.Effect.give(Entities(distance=5), 'absorption')
 
 
 display_all()
