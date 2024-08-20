@@ -8,7 +8,7 @@ class Test:
 Test().f()
 
 with TickingFun():
-    Teleport(Loc(y=1))
+    Teleport(Pos.relative(y=1))
     
 
 display_all()
