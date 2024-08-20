@@ -1,0 +1,24 @@
+# TODO
+'''
+folder ..out
+file example.py
+'''
+
+$headers
+headers = `say Conditions: `
+
+
+def say(x: str):
+    return `say ` + x 
+
+def if_(c: str, s):
+    headers = headers + c + ', '
+    return `execute if ` + c + ` run ` + s
+
+
+say('hi')
+
+if_('block ~ ~ ~ air', say('bye'))
+
+headers = headers + ' test '
+
