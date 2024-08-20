@@ -1,4 +1,5 @@
 from math import cos, pi, sin
+import random
 
 from langcraft import *
 from langcraft.lib import *
@@ -193,9 +194,9 @@ with Namespace('tracks'):
         ice_block = 'packed_ice'
         lambdas = []
         for i in range(1000):
-            if randint(1, 2) == 1:
+            if random.randint(1, 2) == 1:
                 lambdas.append(lambda block, thickness: straight_segment(random.randint(15, 45), block_type=block, thickness=thickness))
-            elif randint(1, 2) == 1:
+            elif random.randint(1, 2) == 1:
                 turn_base_size = random.randint(-36, 36) + random.randint(-36, 36)
                 turn_sharpness = random.randint(3, 5)
                 lambdas.append(lambda block, thickness: turn_segment(2 * turn_base_size, turn_sharpness * turn_base_size, block_type=block, thickness=thickness))

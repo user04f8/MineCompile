@@ -13,7 +13,10 @@ def tick():
 
 @public
 def slow():
-    mc.Effect.give(SelfEntity(), 'absorption')
+    with Entities(type='pig') as e:
+        e.teleport(Pos.relative(y=3))
+
+    mc.Effect.give(Entities(distance=5), '')
 
 
 display_all()
