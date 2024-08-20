@@ -13,7 +13,7 @@ def tick():
 
 @public
 def slow():
-    Effect.give(SelfEntity(), )
+    mc.Effect.give(SelfEntity(), )
 
 
 display_all(optim=False)
