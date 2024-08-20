@@ -175,7 +175,7 @@ with Namespace('tracks'):
         with SelfEntity().at(Pos.relative(y=-5)):
             triple_helix()
 
-    @fun.ticking
+    @ticking
     def tnt_laser():
         with Entities('a', selected_item=JSON(id="minecraft:stone")).at(pos=Pos.relative(y=1.8)) as players:
             Statement('summon wind_charge ^ ^ ^5')
@@ -220,5 +220,5 @@ with Namespace('tracks'):
 out = compile_all(write=True, root_dir='../datapacks/track_elements')
 # display_all()
 # print('---')
-display(out, regex=r'main:x1/x0')
-# display(out, regex=r'main:x1')
+display(out, regex=r'tracks:first_track')
+# display(out, regex=r'tracks:x1')

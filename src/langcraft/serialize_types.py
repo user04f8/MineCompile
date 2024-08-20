@@ -319,7 +319,8 @@ class _Relative:
         return self + -val
     
     def __round__(self, precision):
-        self.val = round(self.val, precision)
+        if self.val:
+            self.val = round(self.val, precision)
         return self
     
     @staticmethod
@@ -338,11 +339,11 @@ class Pos(Serializable):
     """
     Class for relative coordinates for `minecraft:vec3`.
     """
-    def __init__(self, x=_Relative(), y=_Relative(), z=_Relative(), type_=None):
+    def __init__(self, x=_Relative(), y=_Relative(), z=_Relative(), _type=None):
         """
         Defines positions, e.g. 0 128 0
         """
-        self._type: Literal['^'] | None = type_
+        self._type: Literal['^'] | None = _type
         self.vec3 = x, y, z
     
     @classmethod
@@ -372,7 +373,7 @@ class Pos(Serializable):
 
     def __str__(self):
         if self._type is None:
-            return ' '.join(f'{round(coord, 5)}' for coord in self.vec3)
+            return ' '.join((0 if coord is None else f'{round(coord, 5)}') for coord in self.vec3)
         else:
             return ' '.join(f'{self._type}{round(coord, 5) if coord else ''}' for coord in self.vec3)
 

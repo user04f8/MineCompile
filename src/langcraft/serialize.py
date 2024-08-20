@@ -200,6 +200,7 @@ class ParseErrorToken(TokenBase):
 
 class SerializeErrorToken(TokenBase):
     def __init__(self, err):
+        raise err
         print_err(f'serialize error {err}')
         self.err = err
 

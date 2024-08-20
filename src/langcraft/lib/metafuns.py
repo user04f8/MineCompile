@@ -1,4 +1,5 @@
 from langcraft import *
+from typing import Callable
 
 __all__ = ('line',)
 
