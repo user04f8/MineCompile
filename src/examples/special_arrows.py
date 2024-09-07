@@ -5,6 +5,8 @@ from langcraft.serialize import CommandKeywordToken, BlockToken, ItemToken, IntT
 from langcraft.serialize_types import _SelectorBase
 from langcraft.minecraft_builtins import BlockType
 
+# to run, do `python -m examples.special_arrows`
+
 # general library commands (TODO add to langcraft)
 
 type ItemType = str  # TODO
@@ -31,7 +33,7 @@ TRAIL_ARROW_COLOR = 0xff0000
 
 @fun
 def create_trail():
-    Setblock(Pos(), 'glass')
+    Setblock(Pos.relative(y=-1), 'glass')
 
 
 # main loops
@@ -51,5 +53,5 @@ with Namespace('give'):
 
 # langcraft debug output
 
-display_all()  # to run, do `python -m examples.special_arrows`
-
+out = compile_all(write=True, root_dir='../datapacks/special_arrows')
+# display_all()
