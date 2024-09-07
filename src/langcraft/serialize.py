@@ -5,6 +5,8 @@ from itertools import product
 
 from termcolor import colored
 
+from langcraft.json_utils import JSON
+
 from .debug_utils import *
 from .minecraft_builtins import BlockType
 
@@ -315,7 +317,7 @@ class SelectorToken(TokenBase):
         if self.kwargs == {}:
             return f'@{self.s}'
         else:
-            return f'@{self.s}[{",".join(f"{key}={val}" for key, val in self.kwargs.items())}]'
+            return f'@{self.s}[{",".join(f"{key}={val.selector_str() if isinstance(val, JSON) else val}" for key, val in self.kwargs.items())}]'
 
 
 class ResourceLocToken(TokenBase):

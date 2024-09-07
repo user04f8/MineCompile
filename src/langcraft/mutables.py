@@ -23,26 +23,26 @@ class Entities(_SelectorBase):
     def __init__(self,
                  selector_type: _SelectorType = 'e',
                  type: EntityType = None,
-                 name: str = None,
+                 name: str | None = None,
                  predicate = None,  # TODO add Predicate type
-                 nbt: JSON = None,
-                 selected_item: JSON = None,
-                 distance: float = None,
-                 x: float = None, y: float = None, z: float = None, # xyz start
-                 dx: float = None, dy: float = None, dz: float = None, # (xyz end) - (xyz start) for bbox
-                 x_rotation: _SliceType = None, y_rotation: _SliceType = None,
-                 scores: Dict[str, _SliceType] = None,
-                 tag: str = None,
-                 team: str = None,
-                 limit: int = None,
-                 sort: Literal['nearest', 'furthest', 'random', 'arbitrary'] = None,
-                 level: _SliceType = None,
-                 gamemode: Literal['spectator', 'survival', 'creative', 'adventure'] = None,
-                 advancements: Dict[ResourceLocation, bool | Dict[str, bool]] = None
+                 nbt: JSON | None = None,
+                 selected_item: JSON | None = None,
+                 distance: float | None = None,
+                 x: float | None = None, y: float | None = None, z: float | None = None, # xyz start
+                 dx: float | None = None, dy: float | None = None, dz: float | None = None, # (xyz end) - (xyz start) for bbox
+                 x_rotation: _SliceType | None = None, y_rotation: _SliceType | None = None,
+                 scores: Dict[str, _SliceType] | None = None,
+                 tag: str | None = None,
+                 team: str | None = None,
+                 limit: int | None = None,
+                 sort: Literal['nearest', 'furthest', 'random', 'arbitrary'] | None = None,
+                 level: _SliceType | None = None,
+                 gamemode: Literal['spectator', 'survival', 'creative', 'adventure'] | None = None,
+                 advancements: Dict[ResourceLocation, bool | Dict[str, bool]] | None = None
                  ):
         scores = None if scores is None else ('{' + ','.join(f'{k}={v}' for k, v in scores.items()) + '}' if isinstance(scores, dict) else scores)
         if selected_item:
-            assert nbt is None
+            assert nbt is None, "Cannot define Entities object with both kwargs selected_item and nbt (instead put selected_item in JSON of nbt)"
             nbt = JSON(selected_item=selected_item)
         super().__init__(selector_type,
                          name=name,

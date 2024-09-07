@@ -37,6 +37,12 @@ class JSON:
     #     for key, val in self.obj.items():
     #         str_self += key + ':' + (json.dumps(val.obj) if isinstance(val, JSON) else json.dumps(val))
     #     return str(self.obj)  # this technically works but is way too janky TODO make more rigorous
+
+    def selector_str(self) -> str:
+        return '{' + ','.join(
+                                key + ':' + (val.selector_str() if isinstance(val, JSON) else json.dumps(val))
+                                for key, val in self.obj.items()
+                             ) + '}'
     
     def serialize(self, debug=False, color=False, validate_fun: callable = lambda namespace, path: True, validate_json: callable = lambda namespace, path: True):
         if debug:
