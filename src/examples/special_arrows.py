@@ -38,7 +38,8 @@ def create_trail():
 
 @ticking
 def test():
-    with Entities('e', type='arrow', nbt=JSON(Color=TRAIL_ARROW_COLOR)) as e:
+    with Entities('e', type='arrow', nbt=JSON(item=JSON(components=JSON(**{'"minecraft:potion_contents"': JSON(custom_color=TRAIL_ARROW_COLOR)})))) as e:
+        #@e[type=arrow, nbt={item:{components:{"minecraft:potion_contents":{custom_color: 16711680}}}}]
         create_trail()
 
 # public hooks
