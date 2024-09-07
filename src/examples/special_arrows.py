@@ -46,7 +46,7 @@ def test():
 with Namespace('give'):
     @public
     def glass_trail_arrow():
-        Give(SelfEntity(), 'arrow', 64, potion_contents=JSON(custom_color=TRAIL_ARROW_COLOR))
+        Give(SelfEntity(), 'tipped_arrow', 64, potion_contents=JSON(custom_color=TRAIL_ARROW_COLOR))
 
 # langcraft debug output
 
