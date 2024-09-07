@@ -345,6 +345,21 @@ class BlockToken(TokenBase):
 
     def __str__(self) -> str:
         return self.block_name
+    
+class ItemToken(TokenBase):
+    # TODO color
+
+    def __init__(self, item_name, *data_component_removed_defaults, **data_components):  # TODO add type ItemType
+        # see https://minecraft.wiki/w/Data_component_format
+        self.item_name = item_name
+        self.data_component_removed_defaults = data_component_removed_defaults
+        self.data_components = data_components
+
+    def __str__(self) -> str:
+        if len(self.data_components) + len(self.data_component_removed_defaults) == 0:
+            return self.item_name
+        else:
+            return self.item_name + '[' + ','.join(['!' + removed_default for removed_default in self.data_component_removed_defaults] + [key + '=' + (val.selector_str() if isinstance(val, JSON) else str(val)) for key, val in self.data_components.items()]) + ']'
 
 class JSONRefToken(ResourceLocToken):
     pass
