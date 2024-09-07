@@ -6,6 +6,7 @@ from itertools import product
 from termcolor import colored
 
 from .debug_utils import *
+from .minecraft_builtins import BlockType
 
 _Color = Literal["black", "grey", "red", "green", "yellow", "blue", "magenta", "cyan", "light_grey", "dark_grey",
                  "light_red", "light_green", "light_yellow", "light_blue", "light_magenta", "light_cyan", "white"]
@@ -334,6 +335,14 @@ class BuiltinResourceToken(TokenBase):
         # could return minecraft:{self.s} but that's unnecessary
         return self.s
 
+class BlockToken(TokenBase):
+    # TODO color
+
+    def __init__(self, block_name: BlockType):
+        self.block_name = block_name
+
+    def __str__(self) -> str:
+        return self.block_name
 
 class JSONRefToken(ResourceLocToken):
     pass
