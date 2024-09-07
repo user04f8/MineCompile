@@ -32,16 +32,11 @@ class SpecialArrow(type):
         color = class_dict.get('COLOR')
 
         with Pathspace('arrows'):
-            # Dynamically define the create_trail function
-            @fun
-            def on_tick():
-                class_dict.get('every_tick')()
-
             # Define the ticking function to handle arrows with the specified color
             @ticking
-            def arrow_trail():
+            def on_tick():
                 with Entities('e', type='arrow', nbt=JSON(item=JSON(components=JSON(**{'"minecraft:potion_contents"': JSON(custom_color=color)})))) as e:
-                    on_tick()
+                    class_dict.get('every_tick')()
 
         # Define the public hook to give arrows with the specified color
         with Namespace('give'):
@@ -52,39 +47,18 @@ class SpecialArrow(type):
         # Call the parent's __new__ method to create the class
         return super().__new__(cls, name, bases, class_dict)
     
-class TrailArrow(metaclass=SpecialArrow):
-    COLOR = 0xff0000
+class GlassTrailArrow(metaclass=SpecialArrow):
+    COLOR = 0xcccccc
 
     def every_tick():
         Setblock(Pos.relative(y=-1), 'glass')
 
+class TntTrailArrow(metaclass=SpecialArrow):
+    COLOR = 0xff0000
 
-# # constants
+    def every_tick():
+        Statement(f'summon tnt')
 
-# TRAIL_ARROW_COLOR = 0xff0000
-
-
-# # functions
-
-# @fun
-# def create_trail():
-#     Setblock(Pos.relative(y=-1), 'glass')
-
-
-# # main loops
-
-# @ticking
-# def test():
-#     with Entities('e', type='arrow', nbt=JSON(item=JSON(components=JSON(**{'"minecraft:potion_contents"': JSON(custom_color=TRAIL_ARROW_COLOR)})))) as e:
-#         #@e[type=arrow, nbt={item:{components:{"minecraft:potion_contents":{custom_color: 16711680}}}}]
-#         create_trail()
-
-# # public hooks
-
-# with Namespace('give'):
-#     @public
-#     def glass_trail_arrow():
-#         Give(SelfEntity(), 'tipped_arrow', 64, potion_contents=JSON(custom_color=TRAIL_ARROW_COLOR))
 
 # langcraft debug output
 
