@@ -24,6 +24,12 @@ class Give(Statement):
 
         super().__init__(tokens)
 
+class Tag(Statement):
+    def __init__(self, entities: Entities, tag: str):
+        super().__init__([CommandKeywordToken('tag'), entities, CommandKeywordToken('add'), tag])
+
+        # TODO could implement better global tagging system for reducing nbt checks
+
 # actual test code
 
 class SpecialArrow(type):
@@ -33,22 +39,29 @@ class SpecialArrow(type):
 
         with Pathspace('arrows'):
             # Define the ticking function to handle arrows with the specified color
-            @ticking
+            @ticking  # TODO ideally should only add unique function names once
             def on_tick():
-                with Entities('e', type='arrow', nbt=JSON(item=JSON(components=JSON(**{'"minecraft:potion_contents"': JSON(custom_color=color)})))) as e:
-                    class_dict.get('every_tick')()
+                if class_dict.get('every_tick'):
+                    with Entities('e', type='arrow', nbt=JSON(item=JSON(components=JSON(**{'"minecraft:potion_contents"': JSON(custom_color=color)})))):
+                        class_dict.get('every_tick')()
+                
+                if class_dict.get('on_land'):
+                    with Entities('e', type='arrow', nbt=JSON(tag='TODO: add detection for in_ground')):
+                        class_dict.get('on_land')()
 
         # Define the public hook to give arrows with the specified color
         with Namespace('give'):
-            @public
-            def give_trail_arrow():
+            @public(class_dict.get('NAME') or name)
+            def give_arrow():
                 Give(SelfEntity(), 'tipped_arrow', 64, potion_contents=JSON(custom_color=color))
 
         # Call the parent's __new__ method to create the class
         return super().__new__(cls, name, bases, class_dict)
-    
+
+
 class GlassTrailArrow(metaclass=SpecialArrow):
     COLOR = 0xcccccc
+    NAME = 'glass_trail_arrow'
 
     def every_tick():
         Setblock(Pos.relative(y=-1), 'glass')
@@ -57,9 +70,24 @@ class TntTrailArrow(metaclass=SpecialArrow):
     COLOR = 0xff0000
 
     def every_tick():
-        Statement(f'summon tnt')
+        with Summon('tnt'): pass
+    
 
 
+class VineArrow(metaclass=SpecialArrow):
+    COLOR = 0x00aa00
+
+    @fun
+    def on_land():
+        def inner():
+            Pass()
+        
+        with Summon('marker') as marker:
+            with While('block ~ ~ ~ air'):
+                Setblock(Pos(), 'vine')
+                marker.y -= 1
+            inner()  # TODO: be able to unwrap function call here
+            
 # langcraft debug output
 
 out = compile_all(write=True, root_dir='../datapacks/special_arrows')

@@ -14,7 +14,7 @@ from .scores import Score
 from .load import legacy_init
 from .base import Namespace, Pathspace, Statement, Pass, Debug, Fun, TickingFun, PublicFun, Partial, fun, ticking, on_load, public, metafun, lambda_metafun
 
-from .mutables import Entities, Entity, SelfEntity
+from .mutables import Entities, Entity, SelfEntity, Summon
 from .control_flow import If, While, Do, Schedule, ScoreTree
 from .commands import Condition, Advancement, Teleport, Kill
 from .globals import GLOBALS

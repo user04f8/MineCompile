@@ -1,7 +1,7 @@
 from pathlib import Path
 from zipfile import ZipFile
 from random import randint
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 import json
 
 from .globals import GLOBALS, DATAPACK_ROOT, RefFlags
@@ -122,7 +122,7 @@ def save_files(root_dir: str, write_files: dict):
         with open(file_full_path, 'w') as f:
             f.write(file_contents)
 
-def save_files_to_zip(root_dir: str, write_files: dict):
+def save_files_to_zip(root_dir: str, write_files: dict[str, str]):
     zip_file_path = Path(root_dir + '.zip')
     zip_file_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -138,7 +138,7 @@ def compile_all(programs: Dict[str, Program] | None = None,
                 color=False,
                 debug=False,
                 optim=True,
-                save_strategy=save_files_to_zip
+                save_strategy: Callable[[str, dict[str, str]], None] = save_files_to_zip
                 ) -> Dict[str, str]:
     if programs is None:
         programs = GLOBALS.programs

@@ -51,7 +51,7 @@ class JSON:
         else:
             return json.dumps(self.obj, default=lambda x: x.obj)
     
-    def add(self, json: Self):
+    def add(self, json: Self, allow_duplicates=True):  # TODO implement allow_duplicates
         for name, val in json.obj.items():
             if name in self.obj.keys():
                 match val:
