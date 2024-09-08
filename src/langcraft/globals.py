@@ -230,8 +230,6 @@ class Globals:
         else:
             self.jsons[path].strict_add(json)
 
-        self.jsons[path][]
-
     # TAGS
     def add_to_function_tag(self, name: Optional[str], function_names: List[str]):
         self.strict_add_json('tags/function', name, FunctionJSON(function_names), base=FunctionJSON)
