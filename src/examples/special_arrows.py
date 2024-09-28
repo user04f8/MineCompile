@@ -74,19 +74,19 @@ class TntTrailArrow(metaclass=SpecialArrow):
     
 
 
-class VineArrow(metaclass=SpecialArrow):
-    COLOR = 0x00aa00
+# class VineArrow(metaclass=SpecialArrow):
+#     COLOR = 0x00aa00
 
-    @fun
-    def on_land():
-        def inner():
-            Pass()
+#     @fun
+#     def on_land():
+#         def inner():
+#             Pass()
         
-        with Summon('marker') as marker:
-            with While('block ~ ~ ~ air'):
-                Setblock(Pos(), 'vine')
-                marker.y -= 1
-            inner()  # TODO: be able to unwrap function call here
+#         with Summon('marker') as marker:
+#             with While('block ~ ~ ~ air'):
+#                 Setblock(Pos(), 'vine')
+#                 marker.y -= 1
+#             inner()  # TODO: be able to unwrap function call here
             
 # langcraft debug output
 

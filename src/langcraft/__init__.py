@@ -12,7 +12,8 @@ from .autogened_commands import mc
 from .serialize_types import Objective, Pos, Rot, ExternalResourceLocation, Dimension 
 from .scores import Score
 from .load import legacy_init
-from .base import Namespace, Pathspace, Statement, Pass, Debug, Fun, TickingFun, PublicFun, Partial, fun, ticking, on_load, public, metafun, lambda_metafun
+from .base import Namespace, Pathspace, Statement, Pass, Debug, Fragment, \
+                  Fun, TickingFun, PublicFun, Partial, fun, ticking, on_load, public, metafun, lambda_metafun
 
 from .mutables import Entities, Entity, SelfEntity, Summon
 from .control_flow import If, While, Do, Schedule, ScoreTree

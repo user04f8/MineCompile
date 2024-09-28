@@ -574,3 +574,8 @@ def public(func: str | Callable, fun_args=None, metafun_kwargs=None):
         f()
         return f
 
+class Fragment(Fun):
+    def __exit__(self, *args):
+        self()
+        super().__exit__(*args)
+        
