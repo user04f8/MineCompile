@@ -40,6 +40,7 @@ class _Colors:
 
 class TokenBase(ABC):
     COLOR = _Colors.DEFAULT
+    debug_info = None
 
     @abstractmethod
     def __str__(self) -> str:
@@ -50,7 +51,10 @@ class TokenBase(ABC):
         return colored(self.__str__(), self.COLOR)
 
     def debug_str(self) -> str:
-        return self.color_str()
+        if self.debug_info:
+            return self.color_str() + f' {{{self.debug_info}}}'
+        else:
+            return self.color_str()
 
     def __format__(self, format_spec: str) -> str:
         return str(self)
@@ -87,8 +91,9 @@ class RawToken(TokenBase):
 class DebugToken(TokenBase):
     COLOR = 'dark_grey'
 
-    def __init__(self, s: str):
+    def __init__(self, s: str, debug_info=None):
         self.s = s
+        self.debug_info = debug_info
 
     def __str__(self):
         return self.s

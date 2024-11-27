@@ -21,3 +21,5 @@ from .commands import Condition, Advancement, Teleport, Kill
 from .globals import GLOBALS
 from .compile import compile_all, compile_program
 from .debug import display, display_all
+from .debug_utils import enable_verbose
+

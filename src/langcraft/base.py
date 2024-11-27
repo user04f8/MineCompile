@@ -202,7 +202,7 @@ class Debug(Statement):
         for score in scores:
             json_text += JSONText(f'\n{score}=') + JSONText(score_name="@s", score_objective=score)
 
-        super().__init__(DebugToken(f'tellraw @a {json_text}'))
+        super().__init__(DebugToken(f'tellraw @a {json_text}', debug_info=json_text.debug_str()))
 
 
 # noinspection PyMissingConstructor
@@ -379,7 +379,7 @@ class Fun:
     def __call__(self, *args) -> FunStatement:
         if self.inline:
             if self.inline_block is None:
-                print_debug(f'deprecated inline Fun {self.namespace}:{"/".join(self.path)}')
+                print_debug(f'inline Fun {self.namespace}:{"/".join(self.path)}')
                 self.inline_block = Block(*args)
                 self.inline_block.clear()
 
@@ -576,6 +576,7 @@ def public(func: str | Callable, fun_args=None, metafun_kwargs=None):
 
 class Fragment(Fun):
     def __exit__(self, *args):
-        self()
+        # self()  # NOTE: this loops infinitely
         super().__exit__(*args)
+        self()
         

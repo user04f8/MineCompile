@@ -15,9 +15,10 @@ from .load import load
 PRUNE_INLINE = False  # TODO need to update optim
 PRUNE_INLINE_EXECUTE = False
 
-def compile_program(program: Program, **serialize_kwargs):
-    print_debug(f'compiling {program}')
-    s = program.serialize(**serialize_kwargs)
+def compile_program(program: Program, debug=True, **serialize_kwargs):
+    if debug:
+        print_debug(f'compiling {program}')
+    s = program.serialize(debug=debug, **serialize_kwargs)
     s = s.replace(REMOVE_TOKEN_SEP + TOKEN_SEP, '')
     return s
 

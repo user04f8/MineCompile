@@ -4,6 +4,7 @@ from .base import Statement, Fun, Block, FunStatement, WithStatement
 from .commands import Condition, RawExecute, _ConditionArgType
 from .scores import Score
 from .serialize_types import _Days, _Seconds
+from .debug_utils import print_warn
 
 class If(WithStatement):
     def __init__(self, condition: _ConditionArgType, add=True):
@@ -95,10 +96,15 @@ class ScoreTree(WithStatement):
         self.leafs_terminal = leafs_terminal
 
     def __call__(self, *statements: Statement):
-        n = len(statements)
+        n = len(statements)            
         assert n % self.cmds_per_score == 0
         grouped_statements = [statements[i:i+self.cmds_per_score] for i in range(0, n, self.cmds_per_score)]
-        self._generate_tree(grouped_statements)
+
+        if len(grouped_statements) == 1:
+            print_warn("Likely misuse of ScoreTree with singuar statement group")
+            Fun._wrap_statements(*grouped_statements)
+        else:
+            self._generate_tree(grouped_statements)
 
     def _generate_tree(self, grouped_statements, a=0) -> Tuple[Statement]:
         if len(grouped_statements) == 1:

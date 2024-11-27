@@ -1,7 +1,11 @@
 from termcolor import cprint
 from traceback import print_exc
 
-DEBUG = True
+DEBUG = False
+
+def enable_verbose():
+    global DEBUG
+    DEBUG = True
 
 def print_fatal(msg):
     cprint(f'FATAL: {msg}', 'red')

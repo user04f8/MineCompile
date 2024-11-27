@@ -1,6 +1,6 @@
 from enum import StrEnum
 import json
-from typing import Union, List, Optional, Dict, Literal, Self
+from typing import Iterable, Union, List, Optional, Dict, Literal, Self
 from termcolor import colored
 
 from .globals import GLOBALS
@@ -42,7 +42,6 @@ class JSONText(Serializable):
         
         self.text = text
         self.extra = extra
-        self.type = type
         self.color = color
         self.font = font
         self.bold = bold
@@ -70,6 +69,16 @@ class JSONText(Serializable):
         self.block = block
         self.entity = entity
         self.storage = storage
+
+        self.type = type or (
+            'text' if self.text else
+            'translatable' if self.translate else
+            'score' if self.score_name else
+            'selector' if self.selector else
+            'keybind' if self.keybind else
+            'nbt' if self.nbt else
+            None
+        )
 
     def to_dict(self):
         result = {}
@@ -192,7 +201,7 @@ class JSONText(Serializable):
         return self
 
     def debug_str(self):
-        def apply_styles(text, color=None, bold=None, italic=None, underlined=None, strikethrough=None, obfuscated=None):
+        def apply_styles(text, color=None, bold=None, italic=None, underlined=None, strikethrough=None, obfuscated=None):            
             attrs = []
             if bold:
                 attrs.append('bold')
@@ -219,18 +228,33 @@ class JSONText(Serializable):
             preview = f'Keybind: {self.keybind}'
         elif self.type == 'nbt':
             preview = f'NBT: {self.nbt} (source: {self.source})'
-        else:
+        elif self.type == 'text':
             preview = apply_styles(
-                self.text if isinstance(self.text, str) else ' '.join(self.text),
+                self.text if isinstance(self.text, str) else (
+                    ' '.join(self.text) if isinstance(self.text, Iterable) else print_debug(self.text)),
                 self.color, self.bold, self.italic, self.underlined,
                 self.strikethrough, self.obfuscated
             )
+        else:
+            raise AssertionError(f"self.type={self.type} is not a valid type")
 
         if self.components:
             for component in self.components:
                 preview += ' ' + component.debug_str()
-
-        return preview
+        
+        if self.extra is not None:
+            extra_preview = ''
+            for extra in self.extra:
+                if isinstance(extra, JSONText):
+                    extra_preview += extra.debug_str()
+                elif isinstance(extra, str):
+                    extra_preview += extra
+                else:
+                    assert f"Invalid type found in extra property of {extra}"
+            
+            return preview + extra_preview
+        else:
+            return preview
 
 type _SliceType = int | str  # str that is of form #, #.., ..#, or #..#
 
